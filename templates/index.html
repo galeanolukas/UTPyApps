@@ -1,0 +1,52 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="w3-row-padding">
+    <div class="w3-col l12">
+        <div class="w3-card w3-white w3-round-large w3-padding">
+            <h2 class="w3-text-teal">Aplicaciones Disponibles</h2>
+            
+            {% if apps %}
+                <div class="w3-row-padding">
+                    {% for app in apps %}
+                    <div class="w3-col l3 m4 s6 w3-margin-bottom">
+                        <div class="w3-card w3-round-large w3-hover-shadow">
+                            <header class="w3-container w3-teal w3-round-large-top">
+                                <h3 class="w3-center">{{ app.name }}</h3>
+                            </header>
+                            <div class="w3-container w3-padding">
+                                <p class="w3-text-grey">{{ app.description or 'Sin descripción' }}</p>
+                                <div class="w3-row w3-margin-top">
+                                    <div class="w3-col s6">
+                                        <small class="w3-text-grey">v{{ app.version or '1.0' }}</small>
+                                    </div>
+                                    <div class="w3-col s6 w3-right-align">
+                                        <small class="w3-text-grey">{{ app.author or 'Anónimo' }}</small>
+                                    </div>
+                                </div>
+                                <div class="w3-margin-top">
+                                    <a href="/_app/{{ app.folder }}" class="w3-btn w3-teal w3-round-large w3-block">
+                                        <i class="w3-margin-right">▶</i> Lanzar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="w3-center w3-padding-48">
+                    <i class="w3-xxxlarge w3-text-grey">📱</i>
+                    <h3 class="w3-text-grey">No hay aplicaciones</h3>
+                    <p class="w3-text-grey">Crea tu primera aplicación para comenzar</p>
+                    <a href="/crear" class="w3-btn w3-teal w3-round-large">
+                        <i class="w3-margin-right">+</i> Crear App
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

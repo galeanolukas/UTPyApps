@@ -1,0 +1,53 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Crear Nueva App{% endblock %}
+
+{% block content %}
+<div class="w3-row-padding">
+    <div class="w3-col l8 m10 s12">
+        <div class="w3-card w3-white w3-round-large w3-padding">
+            <h2 class="w3-text-teal">Crear Nueva Aplicación</h2>
+            <p class="w3-text-grey">Completa el formulario para crear una nueva aplicación</p>
+            
+            <form method="POST" class="w3-margin-top">
+                <div class="w3-margin-bottom">
+                    <label class="w3-text-grey">Nombre de la App *</label>
+                    <input type="text" name="nombre" required class="w3-input w3-border w3-round-large" 
+                           placeholder="Mi Aplicación">
+                </div>
+                
+                <div class="w3-margin-bottom">
+                    <label class="w3-text-grey">Descripción</label>
+                    <textarea name="descripcion" class="w3-input w3-border w3-round-large" 
+                              placeholder="Describe tu aplicación..." rows="3"></textarea>
+                </div>
+                
+                <div class="w3-row">
+                    <div class="w3-col s6">
+                        <a href="/" class="w3-btn w3-large w3-round-large w3-block w3-grey">
+                            ← Cancelar
+                        </a>
+                    </div>
+                    <div class="w3-col s6">
+                        <button type="submit" class="w3-btn w3-large w3-round-large w3-block w3-teal">
+                            <i class="w3-margin-right">✓</i> Crear App
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="w3-col l4 m2 s12">
+        <div class="w3-card w3-white w3-round-large w3-padding">
+            <h4 class="w3-text-teal">Estructura de App</h4>
+            <p class="w3-small w3-text-grey">Cada app tendrá:</p>
+            <ul class="w3-small">
+                <li>• app.json (configuración)</li>
+                <li>• view.html (interfaz)</li>
+                <li>• logic.py (opcional)</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

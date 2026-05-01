@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UTPYAPPS - {% block title %}Meta-Lanzador{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/w3.css">
+    <link rel="stylesheet" href="/static/css/common.css">
+    <script src="/static/js/common.js"></script>
+</head>
+<body class="w3-light-grey">
+    <!-- Header -->
+    <header class="w3-container w3-teal w3-padding-24">
+        <div class="w3-row">
+            <div class="w3-col s8">
+                <h1 class="w3-xxlarge">
+                    <img src="/static/images/ubuntu-touch-logo.svg" style="width:40px;height:40px;vertical-align:middle;margin-right:10px;">
+                    UTPYAPPS
+                </h1>
+                <p class="w3-large">Meta-lanzador para aplicaciones Python en Ubuntu Touch</p>
+            </div>
+            <div class="w3-col s4 w3-right-align">
+                <a href="/crear" class="w3-btn w3-large w3-round-large w3-white w3-text-teal">
+                    <i class="w3-large">+</i> Nueva App
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="w3-container w3-padding-16">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="w3-container w3-teal w3-padding-16 w3-margin-top">
+        <div class="w3-center">
+            <p class="w3-small">UTPYAPPS - Meta-lanzador para Ubuntu Touch</p>
+        </div>
+    </footer>
+</body>
+</html>
