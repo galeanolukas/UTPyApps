@@ -327,15 +327,31 @@ def get_app_files(request, app_name):
     
     return Response(json.dumps(files), headers={'Content-Type': 'application/json'})
 
-@app.route('/api/editor/<app_name>/file/<filename>')
-def get_file_content(request, app_name, filename):
+@app.route('/api/editor/<app_name>/file')
+def get_file_content(request, app_name):
     """Obtener contenido de un archivo para el editor"""
     app_path = os.path.join(APPS_DIR, app_name)
+    
+    # Obtener filename de los query params
+    filename = request.args.get('filename')
+    if not filename:
+        return Response(json.dumps({'error': 'Filename requerido'}), status_code=400, headers={'Content-Type': 'application/json'})
+    
+    # Decodificar el filename para manejar correctamente las rutas con /
+    from urllib.parse import unquote
+    filename = unquote(filename)
+    
+    # Construir la ruta completa del archivo
     file_path = os.path.join(app_path, filename)
     
-    # Validar que el archivo esté dentro del directorio de la app
-    if not os.path.commonpath([app_path]) == os.path.commonpath([app_path, file_path]):
-        return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
+    # Validar que el archivo esté dentro del directorio de la app (seguridad)
+    try:
+        common_path = os.path.commonpath([app_path])
+        file_common_path = os.path.commonpath([app_path, file_path])
+        if common_path != file_common_path:
+            return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
+    except ValueError:
+        return Response(json.dumps({'error': 'Ruta inválida'}), status_code=400, headers={'Content-Type': 'application/json'})
     
     if not os.path.exists(file_path) or not os.path.isfile(file_path):
         return Response(json.dumps({'error': 'Archivo no encontrado'}), status_code=404, headers={'Content-Type': 'application/json'})
@@ -350,8 +366,8 @@ def get_file_content(request, app_name, filename):
     except Exception as e:
         return Response(json.dumps({'error': f'Error leyendo archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
 
-@app.route('/api/editor/<app_name>/file/<filename>', methods=['POST'])
-def save_file_content(request, app_name, filename):
+@app.route('/api/editor/<app_name>/file', methods=['POST'])
+def save_file_content(request, app_name):
     """Guardar contenido de un archivo desde el editor"""
     app_path = os.path.join(APPS_DIR, app_name)
     
@@ -359,16 +375,31 @@ def save_file_content(request, app_name, filename):
     if not os.path.exists(app_path):
         return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
     
+    # Obtener filename de los query params
+    filename = request.args.get('filename')
+    if not filename:
+        return Response(json.dumps({'error': 'Filename requerido'}), status_code=400, headers={'Content-Type': 'application/json'})
+    
+    # Decodificar el filename para manejar correctamente las rutas con /
+    from urllib.parse import unquote
+    filename = unquote(filename)
+    
+    # Construir la ruta completa del archivo
     file_path = os.path.join(app_path, filename)
     
     # Validar que el archivo está dentro del directorio de la app (seguridad)
-    if not os.path.commonpath([app_path]) == os.path.commonpath([app_path, file_path]):
-        return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
+    try:
+        common_path = os.path.commonpath([app_path])
+        file_common_path = os.path.commonpath([app_path, file_path])
+        if common_path != file_common_path:
+            return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
+    except ValueError:
+        return Response(json.dumps({'error': 'Ruta inválida'}), status_code=400, headers={'Content-Type': 'application/json'})
     
     try:
         content = request.json.get('content', '')
         
-        # Crear directorio si no existe
+        # Crear directorio si no existe (para archivos en subdirectorios)
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         
         with open(file_path, 'w', encoding='utf-8') as f:
@@ -381,8 +412,8 @@ def save_file_content(request, app_name, filename):
         print(f"❌ Error guardando archivo {filename}: {e}")
         return Response(json.dumps({'error': f'Error guardando archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
 
-@app.route('/api/editor/<app_name>/file/<filename>', methods=['DELETE'])
-def delete_file(request, app_name, filename):
+@app.route('/api/editor/<app_name>/file', methods=['DELETE'])
+def delete_file(request, app_name):
     """Eliminar un archivo desde el editor"""
     app_path = os.path.join(APPS_DIR, app_name)
     
@@ -390,11 +421,26 @@ def delete_file(request, app_name, filename):
     if not os.path.exists(app_path):
         return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
     
+    # Obtener filename de los query params
+    filename = request.args.get('filename')
+    if not filename:
+        return Response(json.dumps({'error': 'Filename requerido'}), status_code=400, headers={'Content-Type': 'application/json'})
+    
+    # Decodificar el filename para manejar correctamente las rutas con /
+    from urllib.parse import unquote
+    filename = unquote(filename)
+    
+    # Construir la ruta completa del archivo
     file_path = os.path.join(app_path, filename)
     
     # Validar que el archivo está dentro del directorio de la app (seguridad)
-    if not os.path.commonpath([app_path]) == os.path.commonpath([app_path, file_path]):
-        return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
+    try:
+        common_path = os.path.commonpath([app_path])
+        file_common_path = os.path.commonpath([app_path, file_path])
+        if common_path != file_common_path:
+            return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
+    except ValueError:
+        return Response(json.dumps({'error': 'Ruta inválida'}), status_code=400, headers={'Content-Type': 'application/json'})
     
     # Validar que el archivo existe
     if not os.path.exists(file_path):

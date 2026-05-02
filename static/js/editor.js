@@ -212,6 +212,65 @@ class UTPyApps_Editor {
         return highlighted;
     }
 
+    // Get language from file extension
+    getLanguageFromExtension(filename) {
+        const extension = filename.split('.').pop().toLowerCase();
+        
+        switch (extension) {
+            case 'py':
+                return 'python';
+            case 'js':
+            case 'mjs':
+                return 'javascript';
+            case 'html':
+            case 'htm':
+                return 'html';
+            case 'css':
+                return 'css';
+            case 'json':
+                return 'json';
+            case 'xml':
+                return 'xml';
+            case 'sql':
+                return 'sql';
+            case 'md':
+            case 'markdown':
+                return 'markdown';
+            case 'sh':
+            case 'bash':
+                return 'bash';
+            case 'ts':
+                return 'typescript';
+            case 'jsx':
+                return 'jsx';
+            case 'tsx':
+                return 'tsx';
+            case 'vue':
+                return 'vue';
+            case 'php':
+                return 'php';
+            case 'rb':
+                return 'ruby';
+            case 'go':
+                return 'go';
+            case 'rs':
+                return 'rust';
+            case 'java':
+                return 'java';
+            case 'c':
+            case 'h':
+                return 'c';
+            case 'cpp':
+            case 'cxx':
+            case 'cc':
+                return 'cpp';
+            case 'cs':
+                return 'csharp';
+            default:
+                return 'text';
+        }
+    }
+
     // Handle content change
     handleContentChange(content) {
         if (this.currentFile && this.currentApp) {
@@ -237,25 +296,16 @@ class UTPyApps_Editor {
         }
     }
 
-    // Setup safe auto-save
+    // Setup auto-save (COMPLETELY DISABLED)
     setupAutoSave() {
+        // Auto-save completely disabled to prevent any file corruption
+        // Users must manually save with Ctrl+S or save button
+        console.log('Auto-save completely disabled - use Ctrl+S or save button to save manually');
+        // Clear any existing interval
         if (this.autoSaveInterval) {
             clearInterval(this.autoSaveInterval);
+            this.autoSaveInterval = null;
         }
-        
-        this.autoSaveInterval = setInterval(async () => {
-            if (this.currentFile && this.currentApp && this.editor) {
-                const content = this.editor.value;
-                // Only save if content is not empty and has changed
-                if (content && content.trim().length > 0) {
-                    try {
-                        await this.saveFile();
-                    } catch (error) {
-                        console.error('Auto-save failed:', error);
-                    }
-                }
-            }
-        }, 5000); // Auto-save every 5 seconds
     }
 
     // Setup keyboard shortcuts
@@ -289,7 +339,7 @@ class UTPyApps_Editor {
     async loadFile(appName, filename) {
         try {
             console.log(`Loading file: ${appName}/${filename}`);
-            const response = await fetch(`/api/editor/${appName}/file/${encodeURIComponent(filename)}`);
+            const response = await fetch(`/api/editor/${appName}/file?filename=${encodeURIComponent(filename)}`);
             if (response.ok) {
                 const content = await response.text();
                 console.log(`File content length: ${content.length} chars`);
@@ -299,15 +349,8 @@ class UTPyApps_Editor {
                 this.currentFile = filename;
                 
                 // Update editor content
-                if (this.editor) {
-                    this.editor.value = content;
-                    console.log('Updated existing editor');
-                } else {
-                    // Initialize editor if not exists
-                    const language = this.getLanguageFromFilename(filename);
-                    console.log(`Initializing editor with language: ${language}`);
-                    this.initEditor(document.getElementById('editor'), content, language);
-                }
+                const language = this.getLanguageFromExtension(filename);
+                this.initEditor(document.getElementById('editor'), content, language);
                 
                 // Update UI
                 this.updateFileInfo(appName, filename);
@@ -331,8 +374,8 @@ class UTPyApps_Editor {
         }
         
         try {
-            const content = this.editor.contentDOM.innerText;
-            const response = await fetch(`/api/editor/${this.currentApp}/file/${encodeURIComponent(this.currentFile)}`, {
+            const content = this.editor.value;
+            const response = await fetch(`/api/editor/${this.currentApp}/file?filename=${encodeURIComponent(this.currentFile)}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -345,17 +388,17 @@ class UTPyApps_Editor {
                 this.showMessage('File saved successfully', 'success');
                 return true;
             } else {
-                throw new Error('Failed to save file');
+                console.error('Failed to save file:', response.status);
+                this.showMessage('Failed to save file', 'error');
             }
         } catch (error) {
             console.error('Error saving file:', error);
             this.showMessage('Error saving file: ' + error.message, 'error');
-            this.updateSaveStatus('error');
         }
         return false;
     }
 
-    // Load files list
+    // Load files for app
     async loadFiles(appName) {
         try {
             this.currentApp = appName;
@@ -439,7 +482,7 @@ class UTPyApps_Editor {
         if (!filename) return;
         
         try {
-            const response = await fetch(`/api/editor/${this.currentApp}/file/${encodeURIComponent(filename)}`, {
+            const response = await fetch(`/api/editor/${this.currentApp}/file?filename=${encodeURIComponent(filename)}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -473,7 +516,7 @@ class UTPyApps_Editor {
         if (!confirm(`¿Estás seguro de eliminar ${this.currentFile}?`)) return;
         
         try {
-            const response = await fetch(`/api/editor/${this.currentApp}/file/${encodeURIComponent(this.currentFile)}`, {
+            const response = await fetch(`/api/editor/${this.currentApp}/file?filename=${encodeURIComponent(this.currentFile)}`, {
                 method: 'DELETE'
             });
             
