@@ -3,55 +3,241 @@
 {% block title %}Crear Nueva App{% endblock %}
 
 {% block content %}
-<div class="w3-row-padding" style="margin: 0 -8px;">
-    <div class="w3-col l8 m10 s12" style="padding: 8px;">
-        <div class="w3-card w3-round-large" style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1);">
-            <div class="app-header">Crear Nueva Aplicación</div>
-            <div class="w3-padding" style="padding: 16px;">
-                <p style="color: #AEA79F; font-size: 12px; margin: 6px 0 16px 0;">Completa el formulario para crear una nueva aplicación</p>
-                
-                <form method="POST">
-                    <div style="margin-bottom: 14px;">
-                        <label style="color: #AEA79F; font-size: 12px; display: block; margin-bottom: 4px;">Nombre de la App *</label>
-                        <input type="text" name="nombre" required class="w3-input w3-round-large" 
-                               placeholder="Mi Aplicación" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 8px 12px;">
-                    </div>
-                    
-                    <div style="margin-bottom: 14px;">
-                        <label style="color: #AEA79F; font-size: 12px; display: block; margin-bottom: 4px;">Descripción</label>
-                        <textarea name="descripcion" class="w3-input w3-round-large" 
-                                  placeholder="Describe tu aplicación..." rows="3" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 8px 12px; resize: vertical;"></textarea>
-                    </div>
-                    
-                    <div class="w3-row" style="margin: 20px -4px 0 -4px;">
-                        <div class="w3-col s6" style="padding: 0 4px;">
-                            <a href="/" class="w3-btn w3-round-large w3-block" style="background: rgba(255, 255, 255, 0.1); color: #AEA79F; font-size: 12px; text-decoration: none; padding: 8px;">
-                                ← Cancelar
-                            </a>
-                        </div>
-                        <div class="w3-col s6" style="padding: 0 4px;">
-                            <button type="submit" class="w3-btn w3-round-large w3-block" style="background: linear-gradient(135deg, #E95420 0%, #77216F 100%); color: white; font-size: 12px; padding: 8px;">
-                                ✓ Crear App
-                            </button>
-                        </div>
-                    </div>
-                </form>
+<!-- Contenedor transparente con márgenes responsive -->
+<div class="transparent-container" style="max-width: 900px; margin: 0 auto; padding: 20px;">
+    
+    <!-- Card principal de creación -->
+    <div class="create-card" style="background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 20px; padding: 30px; margin-bottom: 20px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);">
+        
+        <!-- Header -->
+        <div class="create-header" style="text-align: center; margin-bottom: 30px;">
+            <div style="width: 80px; height: 80px; margin: 0 auto 20px auto; background: linear-gradient(135deg, #E95420 0%, #77216F 100%); border-radius: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(233, 84, 32, 0.3);">
+                <span style="font-size: 36px; color: white;">🚀</span>
             </div>
+            <h2 style="color: white; font-size: 28px; font-weight: 600; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px;">Crear Nueva App</h2>
+            <p style="color: rgba(255, 255, 255, 0.7); font-size: 14px; margin: 0;">Completa el formulario para crear una nueva aplicación</p>
         </div>
+        
+        <!-- Formulario -->
+        <form method="POST" class="create-form">
+            <div class="form-grid" style="display: grid; gap: 20px;">
+                
+                <!-- Campo Nombre -->
+                <div class="form-field">
+                    <label style="color: rgba(255, 255, 255, 0.8); font-size: 13px; font-weight: 500; display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Nombre de la App *</label>
+                    <input type="text" name="nombre" required class="form-input" 
+                           placeholder="Mi Aplicación" style="width: 100%; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 12px; color: white; padding: 12px 16px; font-size: 14px; transition: all 0.3s ease; box-sizing: border-box;">
+                </div>
+                
+                <!-- Campo Descripción -->
+                <div class="form-field">
+                    <label style="color: rgba(255, 255, 255, 0.8); font-size: 13px; font-weight: 500; display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Descripción</label>
+                    <textarea name="descripcion" class="form-input" 
+                              placeholder="Describe tu aplicación..." rows="4" style="width: 100%; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 12px; color: white; padding: 12px 16px; font-size: 14px; resize: vertical; transition: all 0.3s ease; box-sizing: border-box; font-family: inherit;"></textarea>
+                </div>
+                
+            </div>
+            
+            <!-- Botones -->
+            <div class="button-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 30px;">
+                <a href="/" class="btn-cancel" style="display: inline-block; text-align: center; background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8); text-decoration: none; padding: 14px 24px; border-radius: 25px; font-size: 14px; font-weight: 500; transition: all 0.3s ease; border: 1px solid rgba(255, 255, 255, 0.2);">
+                    ← Cancelar
+                </a>
+                <button type="submit" class="btn-submit" style="background: linear-gradient(135deg, #E95420 0%, #77216F 100%); color: white; border: none; padding: 14px 24px; border-radius: 25px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(233, 84, 32, 0.3);">
+                    ✓ Crear App
+                </button>
+            </div>
+        </form>
     </div>
     
-    <div class="w3-col l4 m2 s12" style="padding: 8px;">
-        <div class="w3-card w3-round-large" style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 8px;">
-            <div class="app-header">Estructura de App</div>
-            <div class="w3-padding" style="padding: 16px;">
-                <p style="color: #AEA79F; font-size: 12px; margin: 6px 0;">Cada app tendrá:</p>
-                <ul style="color: #AEA79F; font-size: 11px; padding-left: 16px; margin: 8px 0;">
-                    <li style="margin-bottom: 4px;">• app.json (configuración)</li>
-                    <li style="margin-bottom: 4px;">• view.html (interfaz)</li>
-                    <li>• logic.py (opcional)</li>
-                </ul>
+    <!-- Card de información -->
+    <div class="info-card" style="background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 20px; padding: 25px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);">
+        
+        <div class="info-header" style="display: flex; align-items: center; margin-bottom: 20px;">
+            <div style="width: 40px; height: 40px; background: rgba(255, 255, 255, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                <span style="font-size: 20px;">📁</span>
+            </div>
+            <h3 style="color: white; font-size: 18px; font-weight: 600; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Estructura de App</h3>
+        </div>
+        
+        <div class="info-content">
+            <p style="color: rgba(255, 255, 255, 0.7); font-size: 13px; margin: 0 0 15px 0;">Cada app tendrá:</p>
+            
+            <div class="structure-list" style="display: grid; gap: 10px;">
+                <div class="structure-item" style="display: flex; align-items: center; padding: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; border-left: 3px solid #E95420;">
+                    <span style="font-size: 16px; margin-right: 12px;">📄</span>
+                    <div>
+                        <div style="color: white; font-size: 13px; font-weight: 500;">app.json</div>
+                        <div style="color: rgba(255, 255, 255, 0.6); font-size: 11px;">Configuración y metadatos</div>
+                    </div>
+                </div>
+                
+                <div class="structure-item" style="display: flex; align-items: center; padding: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; border-left: 3px solid #77216F;">
+                    <span style="font-size: 16px; margin-right: 12px;">🎨</span>
+                    <div>
+                        <div style="color: white; font-size: 13px; font-weight: 500;">templates/index.html</div>
+                        <div style="color: rgba(255, 255, 255, 0.6); font-size: 11px;">Interfaz de usuario</div>
+                    </div>
+                </div>
+                
+                <div class="structure-item" style="display: flex; align-items: center; padding: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; border-left: 3px solid #5E2750;">
+                    <span style="font-size: 16px; margin-right: 12px;">⚙️</span>
+                    <div>
+                        <div style="color: white; font-size: 13px; font-weight: 500;">main.py</div>
+                        <div style="color: rgba(255, 255, 255, 0.6); font-size: 11px;">Lógica y endpoints (opcional)</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Estilos para efectos hover y responsive -->
+<style>
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .transparent-container {
+        padding: 15px !important;
+        max-width: 100% !important;
+    }
+    
+    .create-card {
+        padding: 20px !important;
+    }
+    
+    .create-header h2 {
+        font-size: 24px !important;
+    }
+    
+    .button-group {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+    
+    .structure-item {
+        padding: 10px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .create-card {
+        padding: 15px !important;
+    }
+    
+    .create-header h2 {
+        font-size: 20px !important;
+    }
+    
+    .create-header .icon-container {
+        width: 60px !important;
+        height: 60px !important;
+    }
+    
+    .create-header .icon-container span {
+        font-size: 28px !important;
+    }
+}
+
+/* Efectos hover para form inputs */
+.form-input:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-color: rgba(233, 84, 32, 0.5) !important;
+    transform: translateY(-1px);
+}
+
+.form-input:focus {
+    outline: none !important;
+    background: rgba(255, 255, 255, 0.18) !important;
+    border-color: #E95420 !important;
+    box-shadow: 0 0 0 3px rgba(233, 84, 32, 0.2) !important;
+}
+
+/* Efectos hover para botones */
+.btn-cancel:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+    color: white !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1);
+}
+
+.btn-submit:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(233, 84, 32, 0.4) !important;
+}
+
+.btn-submit:active {
+    transform: translateY(0) !important;
+}
+
+/* Efectos hover para structure items */
+.structure-item:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    transform: translateX(5px);
+    transition: all 0.3s ease;
+}
+
+/* Animación de entrada */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.create-card, .info-card {
+    animation: slideInUp 0.6s ease-out;
+}
+
+.info-card {
+    animation-delay: 0.2s;
+    animation-fill-mode: both;
+}
+
+/* Efecto de brillo sutil en hover */
+.create-card::before, .info-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+    transition: left 0.5s ease;
+    border-radius: 20px;
+}
+
+.create-card:hover::before, .info-card:hover::before {
+    left: 100%;
+}
+
+.create-card, .info-card {
+    position: relative;
+    overflow: hidden;
+}
+
+/* Placeholder styling */
+.form-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}
+
+/* Label animation */
+.form-field {
+    position: relative;
+}
+
+.form-field label {
+    transition: all 0.3s ease;
+}
+
+.form-field:focus-within label {
+    color: #E95420 !important;
+    transform: translateY(-2px);
+}
+</style>
+
 {% endblock %}

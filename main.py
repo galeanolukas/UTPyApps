@@ -470,31 +470,19 @@ async def crear_app(request):
         app_folder = os.path.join(APPS_DIR, nombre.lower().replace(' ', '_'))
         os.makedirs(app_folder)
         
-        # Crear app.json con requirements
+        # Crear app.json simple
         app_manifest = {
             'name': nombre,
             'description': descripcion,
             'author': 'Usuario',
-            'version': '1.0',
-            'requirements': [
-                'microdot>=0.2.0',
-                'jinja2>=3.0.0'
-            ]
+            'version': '1.0'
         }
         with open(os.path.join(app_folder, 'app.json'), 'w') as f:
             json.dump(app_manifest, f, indent=2)
         
-        # Crear view.html usando template externo
-        template_content = render_template('app_view.html', 
-                                        app_name=nombre, 
-                                        app_description=descripcion or 'App creada con UTPyApps')
-        
-        with open(os.path.join(app_folder, 'view.html'), 'w') as f:
-            f.write(template_content)
-        
-        # Crear main.py por defecto con estructura Microdot simplificada
+        # Crear main.py simple
         app_name_clean = nombre.lower().replace(' ', '_')
-        main_template = f"""# {nombre} - App Microdot para UTPyApps
+        main_template = f"""# {nombre} - App para UTPyApps
 # Name: {nombre}
 # Description: {descripcion or 'App creada con UTPyApps'}
 # Author: Usuario
@@ -518,8 +506,7 @@ def home(request):
     template = app_env.get_template('index.html')
     html_content = template.render(
         app_name='{nombre}',
-        app_description='{descripcion or "App creada con UTPyApps"}',
-        app_version='1.0'
+        app_description='{descripcion or "App creada con UTPyApps"}'
     )
     return Response(html_content)
 
@@ -537,58 +524,100 @@ def home(request):
         
         # Crear estructura de carpetas para la app
         templates_dir = os.path.join(app_folder, 'templates')
-        static_dir = os.path.join(app_folder, 'static')
         os.makedirs(templates_dir, exist_ok=True)
-        os.makedirs(static_dir, exist_ok=True)
         
-        # Copiar template index.html para la app
-        app_index_template = render_template('app_index.html', 
-                                           app_name=nombre, 
-                                           app_description=descripcion or 'App creada con UTPyApps')
+        # Crear index.html básico y genérico
+        index_template = """<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ app_name }}</title>
+    <link rel="stylesheet" href="/static/w3.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .notice {
+            background: #e8f4fd;
+            border: 1px solid #bee5eb;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #0c5460;
+        }
+        .code-info {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ app_name }}</h1>
+            <p>{{ app_description }}</p>
+        </div>
+        
+        <div class="notice">
+            <strong>🚀 ¡Bienvenido a tu nueva app!</strong><br>
+            Ahora puedes editar el código para construir tu aplicación personalizada.
+        </div>
+        
+        <div class="code-info">
+            <h3>📝 Editar Código</h3>
+            <p>Puedes editar los siguientes archivos para personalizar tu app:</p>
+            <ul>
+                <li><strong>main.py</strong> - Lógica principal y endpoints</li>
+                <li><strong>templates/index.html</strong> - Interfaz de usuario</li>
+                <li><strong>app.json</strong> - Configuración de la app</li>
+            </ul>
+            <p>Usa el editor de código de UTPyApps para modificar estos archivos.</p>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="/" class="w3-btn w3-blue w3-round-large">← Volver al Dashboard</a>
+        </div>
+    </div>
+</body>
+</html>"""
         
         with open(os.path.join(templates_dir, 'index.html'), 'w') as f:
-            f.write(app_index_template)
+            f.write(index_template)
         
         return redirect('/')
     
     html_content = render_template('create_app.html')
     return Response(html_content, headers={'Content-Type': 'text/html; charset=utf-8'})
 
-# Sistema de routing: mostrar el view.html de cada app (fallback para apps sin Microdot)
+# Sistema de routing: SOLO para apps sin Microdot (fallback)
+# NOTA: Las apps Microdot montadas manejan sus propias rutas automáticamente
 @app.route('/_app/<nombre>')
-async def ejecutar_app(request, nombre):
-    # Si la app está montada como Microdot, dejar que maneje la ruta
+async def ejecutar_app_fallback(request, nombre):
+    """Fallback SOLO para apps sin Microdot (view.html)"""
+    # Si la app está montada como Microdot, NO hacer nada
+    # Las apps montadas manejan sus rutas automáticamente
     if nombre in mounted_apps:
-        # La app Microdot manejará sus propias rutas
-        # Esta ruta solo se ejecuta si no hay ruta específica en la app
-        app_data = cargar_app_manifest(nombre)
-        return Response(f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>{app_data.get('name', nombre)} - UTPyApps</title>
-            <link rel="stylesheet" href="/static/css/w3.css">
-            <style>
-                body {{ background: linear-gradient(135deg, #2c001e 0%, #5e2750 100%); min-height: 100vh; margin: 0; padding: 0; }}
-                .container {{ padding: 40px 20px; text-align: center; }}
-                .card {{ background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border-radius: 16px; padding: 30px; max-width: 600px; margin: 0 auto; }}
-                h1 {{ color: #E95420; margin-bottom: 20px; }}
-                p {{ color: #AEA79F; margin-bottom: 30px; }}
-                .btn {{ background: linear-gradient(135deg, #E95420 0%, #77216F 100%); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; display: inline-block; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="card">
-                    <h1>{app_data.get('name', nombre)}</h1>
-                    <p>{app_data.get('description', 'App Microdot cargada correctamente')}</p>
-                    <p style="font-size: 14px; opacity: 0.7;">Esta app tiene endpoints personalizados. Prueba las rutas específicas de la app.</p>
-                    <a href="/" class="btn">← Dashboard</a>
-                </div>
-            </div>
-        </body>
-        </html>
-        """, headers={'Content-Type': 'text/html; charset=utf-8'})
+        # La app está montada, pero esta ruta solo se ejecuta si no tiene ruta raíz
+        # Esto es un fallback, no debería ejecutarse normalmente
+        pass
     
     # Fallback: cargar view.html para apps sin Microdot
     app_data = cargar_app_manifest(nombre)
@@ -599,14 +628,39 @@ async def ejecutar_app(request, nombre):
             template_content = f.read()
         # Reemplazar variables simples manualmente
         if app_data:
-            print(f"DEBUG: app_data = {app_data}")  # Debug
             template_content = template_content.replace('APP_NAME', app_data.get('name', nombre))
             template_content = template_content.replace('APP_DESCRIPTION', app_data.get('description', ''))
             template_content = template_content.replace('APP_AUTHOR', app_data.get('author', ''))
             template_content = template_content.replace('APP_VERSION', app_data.get('version', '1.0'))
-            print(f"DEBUG: After replacement, title contains: {template_content[template_content.find('<title>'):template_content.find('</title>')+8]}")  # Debug
         return Response(template_content, headers={'Content-Type': 'text/html; charset=utf-8'})
-    return Response("App no encontrada", status_code=404)
+    
+    # Si no hay view.html, mostrar mensaje de error
+    return Response(f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>App no encontrada</title>
+        <link rel="stylesheet" href="/static/css/w3.css">
+        <style>
+            body {{ background: linear-gradient(135deg, #2c001e 0%, #5e2750 100%); min-height: 100vh; margin: 0; padding: 0; }}
+            .container {{ padding: 40px 20px; text-align: center; }}
+            .card {{ background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border-radius: 16px; padding: 30px; max-width: 600px; margin: 0 auto; }}
+            h1 {{ color: #E95420; margin-bottom: 20px; }}
+            p {{ color: #AEA79F; margin-bottom: 30px; }}
+            .btn {{ background: linear-gradient(135deg, #E95420 0%, #77216F 100%); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; display: inline-block; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="card">
+                <h1>App no encontrada</h1>
+                <p>La app '{nombre}' no existe o no tiene una página principal configurada.</p>
+                <a href="/" class="btn">← Dashboard</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    """, headers={'Content-Type': 'text/html; charset=utf-8'})
 
 if __name__ == '__main__':
     # Crear directorio apps si no existe
