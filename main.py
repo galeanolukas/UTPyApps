@@ -5,6 +5,8 @@ import json
 import os
 import importlib.util
 import mimetypes
+import subprocess
+import sys
 
 app = Microdot()
 CORS(app, allowed_origins="*", allow_credentials=True)
@@ -41,6 +43,69 @@ def parse_app_metadata(app_file_path):
     except Exception as e:
         print(f"Error leyendo metadatos en {app_file_path}: {e}")
     return metadata
+
+def install_app_dependencies(app_folder, requirements):
+    """Instalar dependencias de una app usando pip"""
+    if not requirements or len(requirements) == 0:
+        return True, "No dependencies required"
+    
+    try:
+        # Crear requirements.txt temporal
+        requirements_file = os.path.join(app_folder, 'requirements.txt')
+        with open(requirements_file, 'w') as f:
+            f.write('\n'.join(requirements))
+        
+        print(f"📦 Instalando dependencias para app: {os.path.basename(app_folder)}")
+        
+        # Instalar dependencias con pip
+        result = subprocess.run([
+            sys.executable, '-m', 'pip', 'install', '-r', requirements_file
+        ], capture_output=True, text=True, check=True)
+        
+        print(f"✅ Dependencias instaladas: {len(requirements)} paquetes")
+        if result.stdout:
+            print(f"📋 Output: {result.stdout}")
+        
+        # Eliminar requirements.txt temporal
+        os.remove(requirements_file)
+        
+        return True, f"Dependencies installed: {len(requirements)} packages"
+        
+    except subprocess.CalledProcessError as e:
+        error_msg = f"❌ Error installing dependencies: {e.stderr}"
+        print(error_msg)
+        return False, error_msg
+    except Exception as e:
+        error_msg = f"❌ Error installing dependencies: {e}"
+        print(error_msg)
+        return False, error_msg
+
+def check_package_installed(package_name):
+    """Verificar si un paquete está instalado"""
+    try:
+        # Limpiar nombre del paquete (remover version y extras)
+        clean_name = package_name.split('>=')[0].split('==')[0].split('<=')[0].split('~=')[0]
+        __import__(clean_name)
+        return True
+    except ImportError:
+        return False
+
+def install_app_dependencies_smart(app_folder, requirements):
+    """Instalar solo las dependencias que no están presentes"""
+    if not requirements or len(requirements) == 0:
+        return True, "No dependencies required"
+    
+    missing_deps = []
+    for req in requirements:
+        package_name = req.split('>=')[0].split('==')[0].split('<=')[0].split('~=')[0]
+        if not check_package_installed(package_name):
+            missing_deps.append(req)
+    
+    if not missing_deps:
+        print(f"✅ Todas las dependencias ya están instaladas")
+        return True, "All dependencies already installed"
+    
+    return install_app_dependencies(app_folder, missing_deps)
 
 def import_module_from_file(module_name, filepath):
     """Importar un módulo desde archivo (estilo MicroKiOS)"""
@@ -80,6 +145,14 @@ def install_apps(current_app):
             continue
             
         try:
+            # Cargar manifest y verificar dependencias
+            manifest = cargar_app_manifest(app_path)
+            if manifest and 'requirements' in manifest:
+                success, msg = install_app_dependencies_smart(app_path, manifest['requirements'])
+                if not success:
+                    print(f"⚠️ App {app_folder}: {msg}")
+                    continue  # No montar la app si falla la instalación
+            
             # Importar módulo
             module = import_module_from_file(app_folder, app_file)
             
@@ -216,15 +289,19 @@ async def crear_app(request):
         app_folder = os.path.join(APPS_DIR, nombre.lower().replace(' ', '_'))
         os.makedirs(app_folder)
         
-        # Crear app.json
+        # Crear app.json con requirements
         app_manifest = {
             'name': nombre,
             'description': descripcion,
             'author': 'Usuario',
-            'version': '1.0'
+            'version': '1.0',
+            'requirements': [
+                'microdot>=0.2.0',
+                'jinja2>=3.0.0'
+            ]
         }
         with open(os.path.join(app_folder, 'app.json'), 'w') as f:
-            json.dump(app_manifest, f)
+            json.dump(app_manifest, f, indent=2)
         
         # Crear view.html usando template externo
         template_content = render_template('app_view.html', 

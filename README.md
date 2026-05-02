@@ -405,7 +405,70 @@ def home(request):
     return Response(html_content)
 ```
 
-## 🔧 Variables de Template
+## � Sistema de Dependencias
+
+UTPYAPPS soporta gestión automática de dependencias para cada app individualmente.
+
+### Estructura app.json con Requirements
+```json
+{
+  "name": "Mi App",
+  "description": "Descripción de mi app",
+  "author": "Mi Nombre",
+  "version": "1.0.0",
+  "requirements": [
+    "microdot>=0.2.0",
+    "jinja2>=3.0.0",
+    "requests>=2.25.0",
+    "pandas>=1.3.0"
+  ]
+}
+```
+
+### Instalación Automática
+Cuando se inicia UTPYAPPS, el sistema:
+1. **Lee** el campo `requirements` de cada `app.json`
+2. **Verifica** qué paquetes ya están instalados
+3. **Instala** solo las dependencias faltantes con `pip`
+4. **Monta** la app solo si las dependencias se instalaron correctamente
+
+### Formatos de Requirements Soportados
+```json
+{
+  "requirements": [
+    "requests>=2.25.0",      // Versión mínima
+    "pandas==1.3.0",         // Versión exacta
+    "numpy~=1.21.0",         // Versión compatible
+    "flask>=2.0,<3.0",       // Rango de versiones
+    "beautifulsoup4"         // Cualquier versión
+  ]
+}
+```
+
+### Funciones del Sistema
+- **`install_app_dependencies()`**: Instala todas las dependencias
+- **`install_app_dependencies_smart()`**: Instala solo las faltantes
+- **`check_package_installed()`**: Verifica si un paquete está disponible
+
+### Ejemplo de App con Dependencias
+```python
+# main.py
+import requests  # Se instalará automáticamente si no existe
+import pandas as pd  # Se instalará automáticamente si no existe
+
+@app.route('/api/data')
+def get_data(request):
+    response = requests.get('https://api.example.com/data')
+    df = pd.DataFrame(response.json())
+    return Response(df.to_json())
+```
+
+### Manejo de Errores
+- Si una dependencia falla al instalar, la app **no se monta**
+- Los errores se muestran en la consola con detalles del problema
+- Las otras apps continúan funcionando normalmente
+
+## �🔧 Variables de Template
 
 Las apps pueden usar variables especiales que se reemplazan automáticamente:
 
