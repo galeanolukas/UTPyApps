@@ -7,37 +7,93 @@
     <link rel="stylesheet" href="/static/css/w3.css">
     <link rel="stylesheet" href="/static/css/common.css">
     <script src="/static/js/common.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #2c001e 0%, #5e2750 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .topbar {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+        
+        .footer {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+        }
+        
+        .main-content {
+            padding-top: 80px;
+            padding-bottom: 60px;
+            min-height: 100vh;
+        }
+        
+        .ubuntu-orange { color: #E95420; }
+        .ubuntu-purple { color: #77216F; }
+        .ubuntu-dark { color: #2C001E; }
+        .ubuntu-light { color: #AEA79F; }
+        
+        .small-text {
+            font-size: 10px;
+            color: #AEA79F;
+            opacity: 0.7;
+        }
+        
+        .app-header {
+            background: linear-gradient(135deg, #E95420 0%, #77216F 100%);
+            color: white;
+            padding: 12px 20px;
+            margin: -16px -16px 16px -16px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+    </style>
 </head>
-<body class="w3-light-grey">
-    <!-- Header -->
-    <header class="w3-container w3-teal w3-padding-24">
-        <div class="w3-row">
-            <div class="w3-col s8">
-                <h1 class="w3-xxlarge">
-                    <img src="/static/images/ubuntu-touch-logo.svg" style="width:40px;height:40px;vertical-align:middle;margin-right:10px;">
-                    UTPYAPPS
-                </h1>
-                <p class="w3-large">Meta-lanzador para aplicaciones Python en Ubuntu Touch</p>
-            </div>
-            <div class="w3-col s4 w3-right-align">
-                <a href="/crear" class="w3-btn w3-large w3-round-large w3-white w3-text-teal">
-                    <i class="w3-large">+</i> Nueva App
-                </a>
+<body>
+    <!-- Topbar Transparente -->
+    <div class="topbar">
+        <div class="w3-container w3-padding-8">
+            <div class="w3-row">
+                <div class="w3-col s6">
+                    <span class="ubuntu-orange" style="font-size: 14px; font-weight: 500;">UTPYAPPS</span>
+                </div>
+                <div class="w3-col s6 w3-right-align">
+                    <a href="/crear" class="w3-text-white" style="font-size: 12px; text-decoration: none;">+ Nueva App</a>
+                </div>
             </div>
         </div>
-    </header>
+    </div>
 
     <!-- Main Content -->
-    <main class="w3-container w3-padding-16">
+    <main class="main-content w3-container">
         {% block content %}
         {% endblock %}
     </main>
 
-    <!-- Footer -->
-    <footer class="w3-container w3-teal w3-padding-16 w3-margin-top">
-        <div class="w3-center">
-            <p class="w3-small">UTPYAPPS - Meta-lanzador para Ubuntu Touch</p>
+    <!-- Footer Transparente -->
+    <div class="footer">
+        <div class="w3-container w3-padding-8">
+            <div class="w3-center">
+                <span class="small-text">© 2026 UTPYAPPS • Ubuntu Touch</span>
+            </div>
         </div>
-    </footer>
+    </div>
+    
+    {% block scripts %}
+    {% endblock %}
 </body>
 </html>

@@ -16,10 +16,99 @@ env = Environment(loader=FileSystemLoader('templates'))
 # Directorio de apps
 APPS_DIR = os.path.join(os.path.dirname(__file__), 'apps')
 
+# Diccionario para almacenar apps montadas
+mounted_apps = {}
+
 def render_template(template_name, **context):
     """Función helper para renderizar templates"""
     template = env.get_template(template_name)
     return template.render(**context)
+
+def parse_app_metadata(app_file_path):
+    """Extraer metadatos desde comentarios del archivo principal"""
+    metadata = {}
+    try:
+        with open(app_file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.startswith("# "):
+                    key_value = line[2:].split(":", 1)
+                    if len(key_value) == 2:
+                        key = key_value[0].strip()
+                        value = key_value[1].strip()
+                        metadata[key.lower()] = value
+                else:
+                    break  # Termina cuando encuentra la primera línea que no es comentario
+    except Exception as e:
+        print(f"Error leyendo metadatos en {app_file_path}: {e}")
+    return metadata
+
+def import_module_from_file(module_name, filepath):
+    """Importar un módulo desde archivo (estilo MicroKiOS)"""
+    try:
+        spec = importlib.util.spec_from_file_location(module_name, filepath)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    except Exception as e:
+        print(f"Error importando {module_name}: {e}")
+        return None
+
+def install_apps(current_app):
+    """Instalar y montar todas las apps (estilo MicroKiOS)"""
+    if not os.path.exists(APPS_DIR):
+        return current_app
+    
+    excepciones = ["__pycache__", ".DS_Store", "README.md"]
+    
+    for app_folder in os.listdir(APPS_DIR):
+        if app_folder in excepciones:
+            continue
+            
+        app_path = os.path.join(APPS_DIR, app_folder)
+        if not os.path.isdir(app_path):
+            continue
+            
+        # Buscar archivo principal (main.py - estilo MicroKiOS)
+        app_file = None
+        for filename in ["main.py", f"{app_folder}.py", "logic.py"]:
+            file_path = os.path.join(app_path, filename)
+            if os.path.exists(file_path):
+                app_file = file_path
+                break
+        
+        if not app_file:
+            continue
+            
+        try:
+            # Importar módulo
+            module = import_module_from_file(app_folder, app_file)
+            
+            # Buscar la aplicación Microdot en el módulo (estilo MicroKiOS)
+            sub_app = None
+            if module:
+                # Primero buscar variable 'app' (estándar MicroKiOS)
+                if hasattr(module, 'app') and isinstance(getattr(module, 'app'), Microdot):
+                    sub_app = getattr(module, 'app')
+                else:
+                    # Fallback: buscar cualquier instancia de Microdot
+                    for attr_name in dir(module):
+                        attr = getattr(module, attr_name)
+                        if isinstance(attr, Microdot):
+                            sub_app = attr
+                            break
+            
+            if sub_app:
+                # Montar la app con url_prefix
+                current_app.mount(sub_app, url_prefix=f'/_app/{app_folder}')
+                mounted_apps[app_folder] = sub_app
+                print(f"✅ App {app_folder} montada correctamente")
+            else:
+                print(f"⚠️ App {app_folder} no define una aplicación Microdot válida")
+                
+        except Exception as e:
+            print(f"❌ Error instalando {app_folder}: {e}")
+    
+    return current_app
 
 @app.route('/static/<path:path>')
 async def static_files(request, path):
@@ -93,6 +182,30 @@ async def api_app(request, nombre, endpoint):
     return Response(json={'error': 'Endpoint no encontrado'}, status_code=404)
 
 # Crear nueva app desde el dashboard
+@app.route('/eliminar/<nombre>', methods=['POST'])
+def eliminar_app(request, nombre):
+    """Eliminar una aplicación existente"""
+    app_folder = os.path.join(APPS_DIR, nombre)
+    
+    if not os.path.exists(app_folder):
+        return Response("App no encontrada", status_code=404)
+    
+    try:
+        # Eliminar la carpeta de la app recursivamente
+        import shutil
+        shutil.rmtree(app_folder)
+        
+        # Eliminar del diccionario de apps montadas si existe
+        if nombre in mounted_apps:
+            del mounted_apps[nombre]
+        
+        print(f"✅ App '{nombre}' eliminada correctamente")
+        return Response('', status_code=302, headers={'Location': '/'})
+        
+    except Exception as e:
+        print(f"❌ Error eliminando app '{nombre}': {e}")
+        return Response(f"Error al eliminar la app: {e}", status_code=500)
+
 @app.route('/crear', methods=['GET', 'POST'])
 async def crear_app(request):
     if request.method == 'POST':
@@ -113,66 +226,113 @@ async def crear_app(request):
         with open(os.path.join(app_folder, 'app.json'), 'w') as f:
             json.dump(app_manifest, f)
         
-        # Crear view.html por defecto
-        view_template = """<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ app.name }} - UTPYAPPS</title>
-    <link rel="stylesheet" href="/static/css/w3.css">
-    <link rel="stylesheet" href="/static/css/common.css">
-    <script src="/static/js/common.js"></script>
-</head>
-<body class="w3-light-grey">
-    <!-- Header -->
-    <header class="w3-container w3-teal w3-padding-24">
-        <div class="w3-row">
-            <div class="w3-col s8">
-                <h1 class="w3-xxlarge">
-                    <img src="/static/images/ubuntu-touch-logo.svg" style="width:40px;height:40px;vertical-align:middle;margin-right:10px;">
-                    UTPYAPPS
-                </h1>
-                <p class="w3-large">Meta-lanzador para aplicaciones Python en Ubuntu Touch</p>
-            </div>
-            <div class="w3-col s4 w3-right-align">
-                <a href="/" class="w3-btn w3-large w3-round-large w3-white w3-text-teal">
-                    ← Dashboard
-                </a>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="w3-container w3-padding-16">
-        <div class="w3-row-padding">
-            <div class="w3-col l8 m10 s12">
-                <div class="w3-card w3-white w3-round-large w3-padding">
-                    <header class="w3-container w3-teal w3-round-large-top">
-                        <h2>{{ app.name }}</h2>
-                    </header>
-                    <div class="w3-container w3-padding">
-                        <p>{{ app.description }}</p>
-                        <p>¡Tu app está lista para desarrollar!</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-</body>
-</html>"""
+        # Crear view.html usando template externo
+        template_content = render_template('app_view.html', 
+                                        app_name=nombre, 
+                                        app_description=descripcion or 'App creada con UTPYAPPS')
         
         with open(os.path.join(app_folder, 'view.html'), 'w') as f:
-            f.write(view_template)
+            f.write(template_content)
+        
+        # Crear main.py por defecto con estructura Microdot simplificada
+        app_name_clean = nombre.lower().replace(' ', '_')
+        main_template = f"""# {nombre} - App Microdot para UTPYAPPS
+# Name: {nombre}
+# Description: {descripcion or 'App creada con UTPYAPPS'}
+# Author: Usuario
+# Version: 1.0
+
+from microdot import Microdot, Response
+from jinja2 import Environment, FileSystemLoader
+import os
+
+# Crear aplicación Microdot
+app = Microdot()
+Response.default_content_type = 'text/html'
+
+# Configurar templates para esta app
+TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), 'templates')
+app_env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
+
+@app.route('/')
+def home(request):
+    \"\"\"Página principal de la app\"\"\"
+    template = app_env.get_template('index.html')
+    html_content = template.render(
+        app_name='{nombre}',
+        app_description='{descripcion or "App creada con UTPYAPPS"}',
+        app_version='1.0'
+    )
+    return Response(html_content)
+
+# Agrega tus propios endpoints aquí:
+# @app.route('/api/mi_endpoint')
+# def mi_endpoint(request):
+#     return Response({{
+#         'message': 'Hola desde mi endpoint!',
+#         'app': '{nombre}'
+#     }}, headers={{'Content-Type': 'application/json'}})
+"""
+        
+        with open(os.path.join(app_folder, 'main.py'), 'w') as f:
+            f.write(main_template)
+        
+        # Crear estructura de carpetas para la app
+        templates_dir = os.path.join(app_folder, 'templates')
+        static_dir = os.path.join(app_folder, 'static')
+        os.makedirs(templates_dir, exist_ok=True)
+        os.makedirs(static_dir, exist_ok=True)
+        
+        # Copiar template index.html para la app
+        app_index_template = render_template('app_index.html', 
+                                           app_name=nombre, 
+                                           app_description=descripcion or 'App creada con UTPYAPPS')
+        
+        with open(os.path.join(templates_dir, 'index.html'), 'w') as f:
+            f.write(app_index_template)
         
         return redirect('/')
     
     html_content = render_template('create_app.html')
     return Response(html_content, headers={'Content-Type': 'text/html; charset=utf-8'})
 
-# Sistema de routing: mostrar el view.html de cada app
+# Sistema de routing: mostrar el view.html de cada app (fallback para apps sin Microdot)
 @app.route('/_app/<nombre>')
 async def ejecutar_app(request, nombre):
+    # Si la app está montada como Microdot, dejar que maneje la ruta
+    if nombre in mounted_apps:
+        # La app Microdot manejará sus propias rutas
+        # Esta ruta solo se ejecuta si no hay ruta específica en la app
+        app_data = cargar_app_manifest(nombre)
+        return Response(f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>{app_data.get('name', nombre)} - UTPYAPPS</title>
+            <link rel="stylesheet" href="/static/css/w3.css">
+            <style>
+                body {{ background: linear-gradient(135deg, #2c001e 0%, #5e2750 100%); min-height: 100vh; margin: 0; padding: 0; }}
+                .container {{ padding: 40px 20px; text-align: center; }}
+                .card {{ background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border-radius: 16px; padding: 30px; max-width: 600px; margin: 0 auto; }}
+                h1 {{ color: #E95420; margin-bottom: 20px; }}
+                p {{ color: #AEA79F; margin-bottom: 30px; }}
+                .btn {{ background: linear-gradient(135deg, #E95420 0%, #77216F 100%); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; display: inline-block; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="card">
+                    <h1>{app_data.get('name', nombre)}</h1>
+                    <p>{app_data.get('description', 'App Microdot cargada correctamente')}</p>
+                    <p style="font-size: 14px; opacity: 0.7;">Esta app tiene endpoints personalizados. Prueba las rutas específicas de la app.</p>
+                    <a href="/" class="btn">← Dashboard</a>
+                </div>
+            </div>
+        </body>
+        </html>
+        """, headers={'Content-Type': 'text/html; charset=utf-8'})
+    
+    # Fallback: cargar view.html para apps sin Microdot
     app_data = cargar_app_manifest(nombre)
     view_path = os.path.join(APPS_DIR, nombre, 'view.html')
     
@@ -193,6 +353,11 @@ async def ejecutar_app(request, nombre):
 if __name__ == '__main__':
     # Crear directorio apps si no existe
     os.makedirs(APPS_DIR, exist_ok=True)
+    
+    # Instalar apps dinámicamente (estilo MicroKiOS)
+    print("📦 Instalando aplicaciones...")
+    app = install_apps(app)
+    
     print("🚀 Iniciando UTPYAPPS - Meta-lanzador para Ubuntu Touch")
     print(f"🌐 Servidor disponible en: http://0.0.0.0:8080")
     app.run(host='0.0.0.0', port=8080, debug=True)
