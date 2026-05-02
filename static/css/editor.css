@@ -1,0 +1,388 @@
+/* UTPyApps Code Editor - Ubuntu Touch Theme */
+
+/* Main editor container */
+.editor-container {
+    display: flex;
+    height: 100vh;
+    background: linear-gradient(135deg, #2c001e 0%, #5e2750 100%);
+    color: #ffffff;
+    font-family: 'Ubuntu Mono', 'Consolas', 'Monaco', monospace;
+}
+
+/* File Explorer */
+.file-explorer-container {
+    width: 250px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+}
+
+.file-explorer-header {
+    padding: 15px;
+    background: rgba(233, 84, 32, 0.8);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.file-explorer-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: white;
+}
+
+.file-explorer {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    margin-bottom: 4px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.file-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(5px);
+}
+
+.file-item.active {
+    background: rgba(233, 84, 32, 0.3);
+    border-left: 3px solid #E95420;
+}
+
+.file-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.file-icon.icon-python::before { content: "🐍"; }
+.file-icon.icon-html::before { content: "🌐"; }
+.file-icon.icon-javascript::before { content: "📜"; }
+.file-icon.icon-json::before { content: "📋"; }
+.file-icon.icon-css::before { content: "🎨"; }
+.file-icon.icon-file::before { content: "📄"; }
+
+.file-name {
+    font-size: 13px;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Editor Area */
+.editor-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.editor-header {
+    height: 50px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+}
+
+.file-info {
+    font-size: 14px;
+    color: #ffffff;
+    font-weight: 500;
+}
+
+.save-status {
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #AEA79F;
+}
+
+.save-status.saved {
+    background: rgba(76, 175, 80, 0.3);
+    color: #4CAF50;
+}
+
+.save-status.modified {
+    background: rgba(255, 193, 7, 0.3);
+    color: #FFC107;
+}
+
+.save-status.error {
+    background: rgba(244, 67, 54, 0.3);
+    color: #F44336;
+}
+
+.editor-content {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+/* CodeMirror Custom Theme */
+.cm-editor {
+    height: 100%;
+    font-family: 'Ubuntu Mono', 'Consolas', 'Monaco', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.cm-content {
+    height: 100%;
+    padding: 20px;
+    background: transparent;
+    color: #ffffff;
+    outline: none;
+    border: none;
+    resize: none;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow: auto;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+}
+
+/* Syntax Highlighting Colors */
+.cm-keyword {
+    color: #E95420;
+    font-weight: bold;
+}
+
+.cm-string {
+    color: #87CEEB;
+}
+
+.cm-comment {
+    color: #AEA79F;
+    font-style: italic;
+}
+
+.cm-number {
+    color: #FFB86C;
+}
+
+.cm-builtin {
+    color: #77216F;
+    font-weight: bold;
+}
+
+.cm-tag {
+    color: #FF6B6B;
+}
+
+.cm-attribute {
+    color: #4ECDC4;
+}
+
+.cm-variable {
+    color: #ffffff;
+}
+
+.cm-function {
+    color: #FFD93D;
+}
+
+.cm-operator {
+    color: #E95420;
+}
+
+/* Toolbar */
+.editor-toolbar {
+    height: 40px;
+    background: rgba(255, 255, 255, 0.05);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 15px;
+}
+
+.toolbar-button {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #ffffff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.toolbar-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+}
+
+.toolbar-button:active {
+    transform: translateY(0);
+}
+
+.toolbar-button.primary {
+    background: linear-gradient(135deg, #E95420 0%, #77216F 100%);
+}
+
+.toolbar-button.primary:hover {
+    background: linear-gradient(135deg, #FF6B35 0%, #8E2477 100%);
+}
+
+/* Message Toast */
+.message {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    font-size: 14px;
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+    max-width: 300px;
+}
+
+.message.success {
+    background: rgba(76, 175, 80, 0.3);
+    border-color: rgba(76, 175, 80, 0.5);
+}
+
+.message.error {
+    background: rgba(244, 67, 54, 0.3);
+    border-color: rgba(244, 67, 54, 0.5);
+}
+
+.message.info {
+    background: rgba(33, 150, 243, 0.3);
+    border-color: rgba(33, 150, 243, 0.5);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .file-explorer-container {
+        position: absolute;
+        left: -250px;
+        z-index: 100;
+        transition: left 0.3s ease;
+    }
+    
+    .file-explorer-container.open {
+        left: 0;
+    }
+    
+    .editor-area {
+        margin-left: 0;
+    }
+    
+    .editor-header {
+        padding: 0 15px;
+    }
+    
+    .file-info {
+        font-size: 12px;
+    }
+    
+    .toolbar-button {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+    
+    .cm-content {
+        padding: 15px;
+        font-size: 13px;
+    }
+}
+
+/* Scrollbar Styling */
+.cm-content::-webkit-scrollbar,
+.file-explorer::-webkit-scrollbar {
+    width: 8px;
+}
+
+.cm-content::-webkit-scrollbar-track,
+.file-explorer::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.cm-content::-webkit-scrollbar-thumb,
+.file-explorer::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.cm-content::-webkit-scrollbar-thumb:hover,
+.file-explorer::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Selection */
+.cm-content::selection {
+    background: rgba(233, 84, 32, 0.3);
+}
+
+.cm-content::-moz-selection {
+    background: rgba(233, 84, 32, 0.3);
+}
+
+/* Focus */
+.cm-content:focus {
+    outline: none;
+    box-shadow: inset 0 0 0 2px rgba(233, 84, 32, 0.3);
+}
+
+/* Loading State */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid #E95420;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

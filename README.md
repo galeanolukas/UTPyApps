@@ -1,6 +1,6 @@
-# UTPYAPPS - Meta-Lanzador para Ubuntu Touch
+# UTPyApps - Meta-Lanzador para Ubuntu Touch
 
-UTPYAPPS es un meta-lanzador que proporciona infraestructura para crear y ejecutar aplicaciones Python Microdot en Ubuntu Touch con una interfaz web unificada. Basado en la arquitectura de MicroKiOS para máxima compatibilidad y escalabilidad.
+UTPyApps es un meta-lanzador que proporciona infraestructura para crear y ejecutar aplicaciones Python Microdot en Ubuntu Touch con una interfaz web unificada. Basado en la arquitectura de MicroKiOS para máxima compatibilidad y escalabilidad.
 
 ## 🚀 Características Principales
 
@@ -18,25 +18,28 @@ UTPYAPPS es un meta-lanzador que proporciona infraestructura para crear y ejecut
 ## 📁 Estructura del Proyecto
 
 ```
-ubpyapps/
+utpyapps/
 ├── main.py              # Servidor principal (Microdot + Jinja2)
 ├── requirements.txt     # Dependencias Python
 ├── apps/               # Directorio de aplicaciones
-│   └── hola_mundo/     # App de ejemplo (estructura MicroKiOS)
-│       ├── main.py     # Archivo principal con app Microdot
-│       ├── app.json    # Metadatos de la app
-│       ├── view.html   # Fallback para apps antiguas
-│       ├── templates/  # Templates específicos de la app
-│       │   └── index.html
-│       └── static/     # Archivos estáticos de la app
-├── static/             # Archivos estáticos globales
-│   ├── css/
-│   │   ├── w3.css     # Framework CSS
-│   │   └── common.css  # Estilos adicionales
-│   ├── js/
-│   │   └── common.js  # Funciones comunes
-│   └── logo.png       # Logo por defecto
-└── templates/          # Plantillas del sistema
+│   └── hola_mundo/     # App de ejemplo
+│       ├── main.py     # Código Microdot de la app
+│       ├── app.json    # Metadatos y configuración
+│       └── templates/  # Templates Jinja2
+│           └── index.html
+├── templates/          # Templates globales del sistema
+│   ├── base_layout.html
+│   ├── index.html     # Dashboard principal
+│   ├── create_app.html
+│   └── app_view.html
+└── static/             # Archivos estáticos
+    ├── css/
+    │   ├── w3.css     # Framework CSS
+    │   └── common.css  # Estilos adicionales
+    ├── js/
+    │   └── common.js  # Funciones comunes
+    └── images/
+        └── logo.png       # Logo por defecto
     ├── base_layout.html
     ├── index.html
     ├── create_app.html
@@ -54,7 +57,7 @@ ubpyapps/
 ```bash
 # Clonar el repositorio
 git clone <repository-url>
-cd ubpyapps
+cd utpyapps
 
 # Crear entorno virtual
 python3 -m venv venv
@@ -88,7 +91,7 @@ Crea una carpeta en `apps/` con el nombre de tu app (ej: `mi_app`) y añade esto
 
 #### 1. `main.py` - Aplicación Microdot Principal
 ```python
-# Mi Aplicación - App Microdot para UTPYAPPS
+# Mi Aplicación - App Microdot para UTPyApps
 # Name: Mi Aplicación
 # Description: Descripción de mi app
 # Author: Tu Nombre
@@ -133,7 +136,7 @@ def api_status(request):
     return Response({
         'status': 'running',
         'app': 'Mi Aplicación',
-        'framework': 'UTPYAPPS',
+        'framework': 'UTPyApps',
         'endpoints': ['/', '/api/hello', '/api/status']
     }, headers={'Content-Type': 'application/json'})
 ```
@@ -145,7 +148,7 @@ def api_status(request):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ app_name }} - UTPYAPPS</title>
+    <title>{{ app_name }} - UTPyApps</title>
     <link rel="stylesheet" href="/static/css/w3.css">
     <link rel="stylesheet" href="/static/css/common.css">
     <script src="/static/js/common.js"></script>
@@ -275,7 +278,7 @@ def api_status(request):
     <div class="footer">
         <div class="w3-container w3-padding-8">
             <div class="w3-center">
-                <span class="small-text">© 2026 UTPYAPPS • Ubuntu Touch</span>
+                <span class="small-text">© 2026 UTPyApps • Ubuntu Touch</span>
             </div>
         </div>
     </div>
@@ -407,7 +410,7 @@ def home(request):
 
 ## � Sistema de Dependencias
 
-UTPYAPPS soporta gestión automática de dependencias para cada app individualmente.
+UTPyApps soporta gestión automática de dependencias para cada app individualmente.
 
 ### Estructura app.json con Requirements
 ```json
@@ -426,7 +429,7 @@ UTPYAPPS soporta gestión automática de dependencias para cada app individualme
 ```
 
 ### Instalación Automática
-Cuando se inicia UTPYAPPS, el sistema:
+Cuando se inicia UTPyApps, el sistema:
 1. **Lee** el campo `requirements` de cada `app.json`
 2. **Verifica** qué paquetes ya están instalados
 3. **Instala** solo las dependencias faltantes con `pip`
@@ -586,4 +589,4 @@ Este proyecto está bajo la Licencia MIT.
 
 ---
 
-**UTPYAPPS** - Meta-lanzador Python para Ubuntu Touch con arquitectura MicroKiOS
+**UTPyApps** - Meta-lanzador Python para Ubuntu Touch con arquitectura MicroKiOS

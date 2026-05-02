@@ -279,6 +279,141 @@ def eliminar_app(request, nombre):
         print(f"❌ Error eliminando app '{nombre}': {e}")
         return Response(f"Error al eliminar la app: {e}", status_code=500)
 
+# Code Editor Routes
+@app.route('/editor/<app_name>')
+def editor_page(request, app_name):
+    """Página del editor de código para una app"""
+    app_path = os.path.join(APPS_DIR, app_name)
+    
+    if not os.path.exists(app_path):
+        return Response("App no encontrada", status_code=404)
+    
+    html_content = render_template('editor.html', app_name=app_name)
+    return Response(html_content)
+
+@app.route('/api/editor/<app_name>/files')
+def get_app_files(request, app_name):
+    """Obtener lista de archivos de una app para el editor"""
+    app_path = os.path.join(APPS_DIR, app_name)
+    
+    if not os.path.exists(app_path):
+        return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
+    
+    files = []
+    
+    # Recorrer directorio de la app
+    for root, dirs, filenames in os.walk(app_path):
+        for filename in filenames:
+            # Ignorar archivos ocultos y compilados
+            if filename.startswith('.') or filename.endswith('.pyc'):
+                continue
+                
+            file_path = os.path.join(root, filename)
+            relative_path = os.path.relpath(file_path, app_path)
+            
+            try:
+                # Obtener información del archivo
+                stat = os.stat(file_path)
+                files.append({
+                    'name': relative_path,
+                    'path': file_path,
+                    'size': stat.st_size,
+                    'modified': stat.st_mtime,
+                    'type': 'file'
+                })
+            except Exception as e:
+                print(f"Error getting file info for {file_path}: {e}")
+                continue
+    
+    return Response(json.dumps(files), headers={'Content-Type': 'application/json'})
+
+@app.route('/api/editor/<app_name>/file/<filename>')
+def get_file_content(request, app_name, filename):
+    """Obtener contenido de un archivo para el editor"""
+    app_path = os.path.join(APPS_DIR, app_name)
+    file_path = os.path.join(app_path, filename)
+    
+    # Validar que el archivo esté dentro del directorio de la app
+    if not os.path.commonpath([app_path]) == os.path.commonpath([app_path, file_path]):
+        return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
+    
+    if not os.path.exists(file_path) or not os.path.isfile(file_path):
+        return Response(json.dumps({'error': 'Archivo no encontrado'}), status_code=404, headers={'Content-Type': 'application/json'})
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return Response(content, headers={'Content-Type': 'text/plain'})
+    except UnicodeDecodeError:
+        # Para archivos binarios
+        return Response(json.dumps({'error': 'Archivo binario no soportado'}), status_code=400, headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        return Response(json.dumps({'error': f'Error leyendo archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/editor/<app_name>/file/<filename>', methods=['POST'])
+def save_file_content(request, app_name, filename):
+    """Guardar contenido de un archivo desde el editor"""
+    app_path = os.path.join(APPS_DIR, app_name)
+    
+    # Validar que la app existe
+    if not os.path.exists(app_path):
+        return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
+    
+    file_path = os.path.join(app_path, filename)
+    
+    # Validar que el archivo está dentro del directorio de la app (seguridad)
+    if not os.path.commonpath([app_path]) == os.path.commonpath([app_path, file_path]):
+        return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
+    
+    try:
+        content = request.json.get('content', '')
+        
+        # Crear directorio si no existe
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        print(f"✅ Archivo guardado: {app_name}/{filename}")
+        return Response(json.dumps({'success': True, 'message': 'Archivo guardado correctamente'}), headers={'Content-Type': 'application/json'})
+        
+    except Exception as e:
+        print(f"❌ Error guardando archivo {filename}: {e}")
+        return Response(json.dumps({'error': f'Error guardando archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/editor/<app_name>/file/<filename>', methods=['DELETE'])
+def delete_file(request, app_name, filename):
+    """Eliminar un archivo desde el editor"""
+    app_path = os.path.join(APPS_DIR, app_name)
+    
+    # Validar que la app existe
+    if not os.path.exists(app_path):
+        return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
+    
+    file_path = os.path.join(app_path, filename)
+    
+    # Validar que el archivo está dentro del directorio de la app (seguridad)
+    if not os.path.commonpath([app_path]) == os.path.commonpath([app_path, file_path]):
+        return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
+    
+    # Validar que el archivo existe
+    if not os.path.exists(file_path):
+        return Response(json.dumps({'error': 'Archivo no encontrado'}), status_code=404, headers={'Content-Type': 'application/json'})
+    
+    # No permitir eliminar archivos esenciales
+    essential_files = ['main.py', 'app.json']
+    if filename in essential_files:
+        return Response(json.dumps({'error': f'No se puede eliminar el archivo esencial: {filename}'}), status_code=403, headers={'Content-Type': 'application/json'})
+    
+    try:
+        os.remove(file_path)
+        print(f"✅ Archivo eliminado: {app_name}/{filename}")
+        return Response(json.dumps({'success': True, 'message': 'Archivo eliminado correctamente'}), headers={'Content-Type': 'application/json'})
+        
+    except Exception as e:
+        print(f"❌ Error eliminando archivo {filename}: {e}")
+        return Response(json.dumps({'error': f'Error eliminando archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
+
 @app.route('/crear', methods=['GET', 'POST'])
 async def crear_app(request):
     if request.method == 'POST':
@@ -306,16 +441,16 @@ async def crear_app(request):
         # Crear view.html usando template externo
         template_content = render_template('app_view.html', 
                                         app_name=nombre, 
-                                        app_description=descripcion or 'App creada con UTPYAPPS')
+                                        app_description=descripcion or 'App creada con UTPyApps')
         
         with open(os.path.join(app_folder, 'view.html'), 'w') as f:
             f.write(template_content)
         
         # Crear main.py por defecto con estructura Microdot simplificada
         app_name_clean = nombre.lower().replace(' ', '_')
-        main_template = f"""# {nombre} - App Microdot para UTPYAPPS
+        main_template = f"""# {nombre} - App Microdot para UTPyApps
 # Name: {nombre}
-# Description: {descripcion or 'App creada con UTPYAPPS'}
+# Description: {descripcion or 'App creada con UTPyApps'}
 # Author: Usuario
 # Version: 1.0
 
@@ -337,7 +472,7 @@ def home(request):
     template = app_env.get_template('index.html')
     html_content = template.render(
         app_name='{nombre}',
-        app_description='{descripcion or "App creada con UTPYAPPS"}',
+        app_description='{descripcion or "App creada con UTPyApps"}',
         app_version='1.0'
     )
     return Response(html_content)
@@ -363,7 +498,7 @@ def home(request):
         # Copiar template index.html para la app
         app_index_template = render_template('app_index.html', 
                                            app_name=nombre, 
-                                           app_description=descripcion or 'App creada con UTPYAPPS')
+                                           app_description=descripcion or 'App creada con UTPyApps')
         
         with open(os.path.join(templates_dir, 'index.html'), 'w') as f:
             f.write(app_index_template)
@@ -385,7 +520,7 @@ async def ejecutar_app(request, nombre):
         <!DOCTYPE html>
         <html>
         <head>
-            <title>{app_data.get('name', nombre)} - UTPYAPPS</title>
+            <title>{app_data.get('name', nombre)} - UTPyApps</title>
             <link rel="stylesheet" href="/static/css/w3.css">
             <style>
                 body {{ background: linear-gradient(135deg, #2c001e 0%, #5e2750 100%); min-height: 100vh; margin: 0; padding: 0; }}
@@ -435,6 +570,6 @@ if __name__ == '__main__':
     print("📦 Instalando aplicaciones...")
     app = install_apps(app)
     
-    print("🚀 Iniciando UTPYAPPS - Meta-lanzador para Ubuntu Touch")
+    print("🚀 Iniciando UTPyApps - Meta-lanzador para Ubuntu Touch")
     print(f"🌐 Servidor disponible en: http://0.0.0.0:8080")
     app.run(host='0.0.0.0', port=8080, debug=True)

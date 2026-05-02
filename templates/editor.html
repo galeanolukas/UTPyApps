@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Código - UTPyApps</title>
+    <link rel="stylesheet" href="/static/css/w3.css">
+    <link rel="stylesheet" href="/static/css/common.css">
+    <link rel="stylesheet" href="/static/css/editor.css">
+    <script src="/static/js/common.js"></script>
+</head>
+<body>
+    <div class="editor-container">
+        <!-- File Explorer -->
+        <div class="file-explorer-container" id="file-explorer-container">
+            <div class="file-explorer-header">
+                <h3>📁 Archivos</h3>
+            </div>
+            <div class="file-explorer" id="file-explorer">
+                <!-- Files will be loaded here dynamically -->
+            </div>
+        </div>
+
+        <!-- Editor Area -->
+        <div class="editor-area">
+            <!-- Header -->
+            <div class="editor-header">
+                <div class="file-info" id="file-info">
+                    <!-- Current file path will be shown here -->
+                </div>
+                <div class="save-status saved" id="save-status">
+                    Saved
+                </div>
+            </div>
+
+            <!-- Editor Content -->
+            <div class="editor-content">
+                <div id="editor" class="cm-editor">
+                    <!-- CodeMirror editor will be initialized here -->
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="editor-toolbar">
+                <button class="toolbar-button primary" onclick="editor.saveFile()">
+                    <span>💾</span> Guardar
+                </button>
+                <button class="toolbar-button" onclick="editor.createNewFile()">
+                    <span>➕</span> Nuevo
+                </button>
+                <button class="toolbar-button" onclick="editor.deleteCurrentFile()">
+                    <span>🗑️</span> Eliminar
+                </button>
+                <button class="toolbar-button" onclick="editor.showFileExplorer()">
+                    <span>📁</span> Explorador
+                </button>
+                <button class="toolbar-button" onclick="window.open('/_app/{{ app_name }}/', '_blank')">
+                    <span>🚀</span> Ver App
+                </button>
+                <button class="toolbar-button" onclick="window.location.href='/'">
+                    <span>🏠</span> Dashboard
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/codemirror/codemirror.min.js"></script>
+    <script src="/static/js/editor.js"></script>
+    
+    <script>
+        // Initialize editor when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const appName = '{{ app_name }}';
+            
+            // Load files for the app
+            editor.loadFiles(appName);
+            
+            // Set initial file info
+            document.getElementById('file-info').textContent = appName + ' /';
+        });
+
+        // Handle keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+S or Cmd+S to save
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                editor.saveFile();
+            }
+            
+            // Ctrl+O or Cmd+O to toggle file explorer
+            if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+                e.preventDefault();
+                editor.showFileExplorer();
+            }
+            
+            // Escape to close file explorer on mobile
+            if (e.key === 'Escape') {
+                const explorer = document.getElementById('file-explorer-container');
+                if (explorer && window.innerWidth <= 768) {
+                    explorer.classList.remove('open');
+                }
+            }
+        });
+
+        // Handle window resize for responsive design
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 768) {
+                const explorer = document.getElementById('file-explorer-container');
+                if (explorer) {
+                    explorer.classList.remove('open');
+                }
+            }
+        });
+
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const explorer = document.getElementById('file-explorer-container');
+            if (explorer) {
+                explorer.classList.toggle('open');
+            }
+        }
+
+        // Add mobile menu button for small screens
+        if (window.innerWidth <= 768) {
+            const header = document.querySelector('.editor-header');
+            const menuButton = document.createElement('button');
+            menuButton.className = 'toolbar-button';
+            menuButton.innerHTML = '<span>☰</span>';
+            menuButton.onclick = toggleMobileMenu;
+            menuButton.style.marginRight = '10px';
+            header.insertBefore(menuButton, header.firstChild);
+        }
+    </script>
+</body>
+</html>
