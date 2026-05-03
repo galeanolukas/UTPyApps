@@ -259,8 +259,30 @@ async def static_files(request, path):
         return Response('Not found', status_code=404)
 
     content_type, _ = mimetypes.guess_type(requested_path)
-    if not content_type:
-        content_type = 'application/octet-stream'
+    if content_type is None:
+        content_type = 'text/plain'
+
+    with open(requested_path, 'rb') as f:
+        content = f.read()
+
+    return Response(content, headers={'Content-Type': content_type})
+
+@app.route('/_app/<app_name>/static/<path:path>')
+async def app_static_files(request, app_name, path):
+    """Servir archivos estáticos desde ./apps/{app_name}/static"""
+    app_static_root = os.path.abspath(os.path.join(APPS_DIR, app_name, 'static'))
+    requested_path = os.path.abspath(os.path.join(app_static_root, path))
+
+    # Prevent path traversal
+    if not (requested_path == app_static_root or requested_path.startswith(app_static_root + os.sep)):
+        return Response('Not found', status_code=404)
+
+    if not os.path.isfile(requested_path):
+        return Response('Not found', status_code=404)
+
+    content_type, _ = mimetypes.guess_type(requested_path)
+    if content_type is None:
+        content_type = 'text/plain'
 
     with open(requested_path, 'rb') as f:
         content = f.read()
@@ -588,48 +610,58 @@ def home(request):
         templates_dir = os.path.join(app_folder, 'templates')
         os.makedirs(templates_dir, exist_ok=True)
         
-        # Crear index.html básico y genérico
-        index_template = """<!DOCTYPE html>
+        # Crear carpeta static para la app
+        static_dir = os.path.join(app_folder, 'static')
+        os.makedirs(static_dir, exist_ok=True)
+        
+        # Crear CSS personalizado para la app
+        css_content = f"""/* Estilos para {nombre} */
+body {{
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f5f5f5;
+}}
+.container {{
+    max-width: 800px;
+    margin: 0 auto;
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}}
+.header {{
+    text-align: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e0e0e0;
+}}
+.notice {{
+    background: #e8f4fd;
+    border: 1px solid #bee5eb;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 20px 0;
+    color: #0c5460;
+}}
+.code-info {{
+    background: #f8f9fa;
+    border-left: 4px solid #007bff;
+    padding: 15px;
+    margin: 20px 0;
+}}
+"""
+        
+        with open(os.path.join(static_dir, 'style.css'), 'w') as f:
+            f.write(css_content)
+        
+        # Crear index.html básico y genérico que referencia el CSS de la app
+        index_template = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>{{ app_name }}</title>
+    <title>{{{{ app_name }}}}</title>
     <link rel="stylesheet" href="/static/w3.css">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #e0e0e0;
-        }
-        .notice {
-            background: #e8f4fd;
-            border: 1px solid #bee5eb;
-            border-radius: 5px;
-            padding: 15px;
-            margin: 20px 0;
-            color: #0c5460;
-        }
-        .code-info {
-            background: #f8f9fa;
-            border-left: 4px solid #007bff;
-            padding: 15px;
-            margin: 20px 0;
-        }
-    </style>
+    <link rel="stylesheet" href="/_app/{app_name_clean}/static/style.css">
 </head>
 <body>
     <div class="container">

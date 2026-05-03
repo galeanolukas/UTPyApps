@@ -1,6 +1,6 @@
 # test_app - App para UTPyApps
 # Name: test_app
-# Description: prueba
+# Description: pruebas
 # Author: Usuario
 # Version: 1.0
 
@@ -22,7 +22,7 @@ def home(request):
     template = app_env.get_template('index.html')
     html_content = template.render(
         app_name='test_app',
-        app_description='prueba'
+        app_description='pruebas'
     )
     return Response(html_content)
 

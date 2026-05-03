@@ -7,7 +7,7 @@
     <div class="w3-container" style="max-width: 1200px; margin: 0 auto;">
         <div class="w3-row-padding" style="margin: 0 -12px;">
             {% for app in apps %}
-            <div class="w3-col l3 m4 s6" style="padding: 12px;">
+            <div class="w3-col l3 m6 s12" style="padding: 12px;">
                 <div class="app-card" style="background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 20px; height: 100%; padding: 20px; transition: all 0.3s ease; cursor: pointer; position: relative; overflow: hidden;" onclick="launchApp('{{ app.folder }}')">
                     <!-- Botones de acción flotantes -->
                     <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 5px; z-index: 10;">
