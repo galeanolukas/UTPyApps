@@ -45,9 +45,9 @@
                         </div>
                         
                         <!-- Botón de lanzar -->
-                        <a href="/_app/{{ app.folder }}" class="launch-btn" style="display: inline-block; background: linear-gradient(135deg, #E95420 0%, #77216F 100%); color: white; text-decoration: none; padding: 10px 20px; border-radius: 25px; font-size: 12px; font-weight: 500; transition: all 0.3s ease; text-align: center; width: 100%; box-shadow: 0 4px 15px rgba(233, 84, 32, 0.3);">
+                        <button onclick="launchApp('{{ app.folder }}')" class="launch-btn" style="display: inline-block; background: linear-gradient(135deg, #E95420 0%, #77216F 100%); color: white; text-decoration: none; padding: 10px 20px; border-radius: 25px; font-size: 12px; font-weight: 500; transition: all 0.3s ease; text-align: center; width: 100%; box-shadow: 0 4px 15px rgba(233, 84, 32, 0.3); border: none; cursor: pointer;">
                             🚀 Lanzar
-                        </a>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -157,6 +157,12 @@ function confirmarEliminar(folder, nombre) {
             alert('Error al eliminar la aplicación');
         });
     }
+}
+
+// Función para lanzar aplicación directamente
+function launchApp(appFolder) {
+    console.log('Lanzando app:', appFolder);
+    window.open('/_app/' + appFolder + '/', '_blank');
 }
 </script>
 {% endblock %}

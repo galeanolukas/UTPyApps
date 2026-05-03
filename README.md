@@ -506,7 +506,7 @@ Cada app Microdot incluye endpoints por defecto:
 ### JavaScript y AJAX
 Usa los endpoints API desde el frontend:
 ```javascript
-fetch('/api/hello')
+fetch('/_app/mi_app/api/hello')
     .then(response => response.json())
     .then(data => console.log(data));
 ```

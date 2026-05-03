@@ -22,24 +22,37 @@ app_env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
 def home(request):
     """Página principal de la app"""
     template = app_env.get_template('index.html')
-    html_content = template.render()
+    html_content = template.render(
+        app_name='Hola Mundo',
+        app_description='App de ejemplo para demostrar el sistema UTPyApps con Microdot y Jinja2'
+    )
+    return Response(html_content)
+
+@app.route('/')
+def home_with_slash(request):
+    """Página principal de la app (con /)"""
+    template = app_env.get_template('index.html')
+    html_content = template.render(
+        app_name='Hola Mundo',
+        app_description='App de ejemplo para demostrar el sistema UTPyApps con Microdot y Jinja2'
+    )
     return Response(html_content)
 
 @app.route('/api/hello')
 def api_hello(request):
     """API endpoint de saludo"""
-    return Response({
+    return Response(json.dumps({
         'message': '¡Hola Mundo desde UTPyApps con Microdot!',
         'app': 'hola_mundo',
         'version': '1.0',
         'framework': 'Microdot',
         'timestamp': '2026-05-01'
-    }, headers={'Content-Type': 'application/json'})
+    }), headers={'Content-Type': 'application/json'})
 
 @app.route('/api/status')
 def api_status(request):
     """API endpoint de estado"""
-    return Response({
+    return Response(json.dumps({
         'status': 'running',
         'app': 'hola_mundo',
         'framework': 'UTPyApps',
@@ -56,7 +69,7 @@ def api_status(request):
             'Dynamic mounting',
             'Template system'
         ]
-    }, headers={'Content-Type': 'application/json'})
+    }), headers={'Content-Type': 'application/json'})
 
 @app.route('/api/saludar')
 def api_saludar(request):
@@ -71,8 +84,8 @@ def api_saludar(request):
     
     mensaje = random.choice(mensajes)
     
-    return Response({
+    return Response(json.dumps({
         'mensaje': mensaje,
         'status': 'success',
         'app': 'hola_mundo'
-    }, headers={'Content-Type': 'application/json'})
+    }), headers={'Content-Type': 'application/json'})
