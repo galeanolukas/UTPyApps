@@ -183,6 +183,68 @@ def install_apps(current_app):
     
     return current_app
 
+def install_single_app(current_app, app_folder):
+    """Instalar y montar una app específica dinámicamente"""
+    if app_folder in mounted_apps:
+        print(f"⚠️ App {app_folder} ya está montada")
+        return current_app
+    
+    app_path = os.path.join(APPS_DIR, app_folder)
+    if not os.path.isdir(app_path):
+        print(f"❌ App {app_folder} no existe")
+        return current_app
+    
+    try:
+        # Buscar archivo principal (main.py - estilo MicroKiOS)
+        app_file = None
+        for filename in ["main.py", f"{app_folder}.py", "logic.py"]:
+            file_path = os.path.join(app_path, filename)
+            if os.path.exists(file_path):
+                app_file = file_path
+                break
+        
+        if not app_file:
+            print(f"❌ App {app_folder} no tiene archivo principal")
+            return current_app
+        
+        # Cargar manifest y verificar dependencias
+        manifest = cargar_app_manifest(app_path)
+        if manifest and 'requirements' in manifest:
+            success, msg = install_app_dependencies_smart(app_path, manifest['requirements'])
+            if not success:
+                print(f"⚠️ App {app_folder}: {msg}")
+                return current_app
+        
+        # Importar módulo
+        module = import_module_from_file(app_folder, app_file)
+        
+        # Buscar la aplicación Microdot en el módulo (estilo MicroKiOS)
+        sub_app = None
+        if module:
+            # Primero buscar variable 'app' (estándar MicroKiOS)
+            if hasattr(module, 'app') and isinstance(getattr(module, 'app'), Microdot):
+                sub_app = getattr(module, 'app')
+            else:
+                # Fallback: buscar cualquier instancia de Microdot
+                for attr_name in dir(module):
+                    attr = getattr(module, attr_name)
+                    if isinstance(attr, Microdot):
+                        sub_app = attr
+                        break
+        
+        if sub_app:
+            # Montar la app con url_prefix
+            current_app.mount(sub_app, url_prefix=f'/_app/{app_folder}')
+            mounted_apps[app_folder] = sub_app
+            print(f"✅ App {app_folder} montada dinámicamente")
+        else:
+            print(f"⚠️ App {app_folder} no define una aplicación Microdot válida")
+            
+    except Exception as e:
+        print(f"❌ Error instalando {app_folder}: {e}")
+    
+    return current_app
+
 @app.route('/static/<path:path>')
 async def static_files(request, path):
     """Servir archivos estáticos desde ./static"""
@@ -601,6 +663,10 @@ def home(request):
         
         with open(os.path.join(templates_dir, 'index.html'), 'w') as f:
             f.write(index_template)
+        
+        # Montar dinámicamente la nueva app
+        app_folder_name = nombre.lower().replace(' ', '_')
+        install_single_app(app, app_folder_name)
         
         return redirect('/')
     
