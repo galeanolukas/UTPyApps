@@ -1570,10 +1570,16 @@ def home(request):
     # Verificar estado del entorno si hay dispositivos conectados
     environment_status = None
     if devices and len(devices) > 0:
-        first_device_id = devices[0]['id'] if isinstance(devices[0], dict) else devices[0].id
-        env_success, env_result = ADBManager.check_environment_status(first_device_id)
-        if env_success:
-            environment_status = env_result
+        first_device = devices[0]
+        if isinstance(first_device, dict):
+            first_device_id = first_device.get('id')
+        else:
+            first_device_id = getattr(first_device, 'id', None)
+        
+        if first_device_id:
+            env_success, env_result = ADBManager.check_environment_status(first_device_id)
+            if env_success:
+                environment_status = env_result
     
     html_content = template.render(
         app_name='ADB Manager',
