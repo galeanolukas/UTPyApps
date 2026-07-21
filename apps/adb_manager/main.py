@@ -942,9 +942,9 @@ if __name__ == '__main__':
             env_path = '/home/phablet/utpyapps'
             venv_path = '/home/phablet/utpyapps/venv'
             
-            # Si no se especifica local_apps_dir, usar el directorio actual
+            # Si no se especifica local_apps_dir, usar el directorio raíz del proyecto
             if not local_apps_dir:
-                local_apps_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                local_apps_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             
             # Etapa 1: Crear directorio principal (sin sudo, funciona en home del usuario)
             stage1_cmd = ['adb', '-s', device_id, 'shell', f'mkdir -p {env_path}']
