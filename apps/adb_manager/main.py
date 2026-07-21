@@ -605,14 +605,14 @@ if __name__ == '__main__':
     
     @staticmethod
     def open_morph_browser(device_id, url=None):
-        """Abrir morph-browser en el dispositivo con URL opcional usando lomiri-app-launch"""
+        """Abrir morph-browser en el dispositivo con URL opcional usando lomiri-url-dispatcher"""
         try:
             if url:
-                # Abrir con URL específica usando lomiri-app-launch
-                result = subprocess.run(['adb', '-s', device_id, 'shell', 'lomiri-app-launch', 'morph-browser', url],
+                # Abrir con URL específica usando lomiri-url-dispatcher (método oficial de Lomiri)
+                result = subprocess.run(['adb', '-s', device_id, 'shell', 'lomiri-url-dispatcher', url],
                                       capture_output=True, text=True, timeout=15)
             else:
-                # Abrir morph-browser sin URL específica
+                # Abrir morph-browser sin URL específica usando lomiri-app-launch
                 result = subprocess.run(['adb', '-s', device_id, 'shell', 'lomiri-app-launch', 'morph-browser'],
                                       capture_output=True, text=True, timeout=15)
             
