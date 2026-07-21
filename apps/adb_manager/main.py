@@ -734,41 +734,25 @@ if __name__ == '__main__':
     
     @staticmethod
     def setup_environment(device_id, sudo_password=None):
-        """Configurar entorno de desarrollo automáticamente en 3 etapas
+        """Configurar entorno de desarrollo automáticamente en 3 etapas (sin sudo)
         
         Etapas:
-        1. Verificar/crear directorio principal ~/utpyapps y limpiar venv existente si pertenece a root
+        1. Crear directorio principal ~/utpyapps (sin sudo, en home del usuario)
         2. Crear entorno virtual con python3 -m venv --without-pip (sin sudo)
-        3. Instalar pip dentro del venv y luego instalar requirements
+        3. Instalar pip dentro del venv y luego instalar requirements (sin sudo)
         """
         try:
             results = []
             env_path = '~/utpyapps'
             venv_path = '~/utpyapps/venv'
             
-            # Etapa 1: Verificar/crear directorio principal y limpiar venv existente si es necesario
-            if sudo_password:
-                # Limpiar venv existente si pertenece a root
-                cleanup_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S rm -rf {venv_path}']
-                cleanup_result = subprocess.run(cleanup_cmd, capture_output=True, text=True, timeout=30)
-                results.append({
-                    'stage': 0,
-                    'description': 'Limpiar venv existente si pertenece a root',
-                    'command': f'sudo rm -rf {venv_path}',
-                    'success': True,  # No es crítico si falla
-                    'output': cleanup_result.stdout,
-                    'error': cleanup_result.stderr
-                })
-            
-            stage1_cmd = ['adb', '-s', device_id, 'shell', f'mkdir -p {env_path} && chmod 755 {env_path}']
-            if sudo_password:
-                stage1_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S mkdir -p {env_path} && sudo -S chmod 755 {env_path}']
-            
+            # Etapa 1: Crear directorio principal (sin sudo, funciona en home del usuario)
+            stage1_cmd = ['adb', '-s', device_id, 'shell', f'mkdir -p {env_path}']
             stage1_result = subprocess.run(stage1_cmd, capture_output=True, text=True, timeout=30)
             results.append({
                 'stage': 1,
-                'description': 'Verificar/crear directorio principal con permisos',
-                'command': f'mkdir -p {env_path} && chmod 755 {env_path}',
+                'description': 'Crear directorio principal ~/utpyapps',
+                'command': f'mkdir -p {env_path}',
                 'success': stage1_result.returncode == 0,
                 'output': stage1_result.stdout,
                 'error': stage1_result.stderr
@@ -782,7 +766,7 @@ if __name__ == '__main__':
                     'results': results
                 }
             
-            # Etapa 2: Crear entorno virtual con python3 nativo (sin sudo para que sea del usuario)
+            # Etapa 2: Crear entorno virtual con python3 nativo (sin sudo)
             stage2_cmd = ['adb', '-s', device_id, 'shell', f'python3 -m venv --without-pip {venv_path}']
             stage2_result = subprocess.run(stage2_cmd, capture_output=True, text=True, timeout=60)
             results.append({
@@ -802,12 +786,8 @@ if __name__ == '__main__':
                     'results': results
                 }
             
-            # Etapa 3: Instalar pip dentro del venv usando get-pip.py
-            # Descargar get-pip.py
+            # Etapa 3: Descargar get-pip.py (sin sudo, /tmp es escribible)
             download_cmd = ['adb', '-s', device_id, 'shell', 'wget', 'https://bootstrap.pypa.io/get-pip.py', '-O', '/tmp/get-pip.py']
-            if sudo_password:
-                download_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py']
-            
             download_result = subprocess.run(download_cmd, capture_output=True, text=True, timeout=30)
             
             if download_result.returncode != 0:
@@ -818,7 +798,7 @@ if __name__ == '__main__':
                     'results': results
                 }
             
-            # Instalar pip dentro del venv (sin sudo para que sea del usuario)
+            # Etapa 4: Instalar pip dentro del venv (sin sudo)
             install_pip_cmd = ['adb', '-s', device_id, 'shell', f'{venv_path}/bin/python3', '/tmp/get-pip.py']
             install_pip_result = subprocess.run(install_pip_cmd, capture_output=True, text=True, timeout=60)
             
@@ -828,14 +808,14 @@ if __name__ == '__main__':
             
             if install_pip_result.returncode != 0:
                 return False, {
-                    'message': 'Error en etapa 3: No se pudo instalar pip en el venv',
-                    'failed_stage': 3,
+                    'message': 'Error en etapa 4: No se pudo instalar pip en el venv',
+                    'failed_stage': 4,
                     'error': install_pip_result.stderr,
                     'results': results
                 }
             
             results.append({
-                'stage': 3,
+                'stage': 4,
                 'description': 'Instalar pip dentro del entorno virtual',
                 'command': f'{venv_path}/bin/python3 /tmp/get-pip.py',
                 'success': install_pip_result.returncode == 0,
@@ -843,12 +823,12 @@ if __name__ == '__main__':
                 'error': install_pip_result.stderr
             })
             
-            # Instalar requirements básicos (microdot, jinja2)
+            # Etapa 5: Instalar requirements básicos (microdot, jinja2)
             install_reqs_cmd = ['adb', '-s', device_id, 'shell', f'{venv_path}/bin/pip', 'install', 'microdot', 'jinja2']
             install_reqs_result = subprocess.run(install_reqs_cmd, capture_output=True, text=True, timeout=120)
             
             results.append({
-                'stage': 4,
+                'stage': 5,
                 'description': 'Instalar requirements básicos (microdot, jinja2)',
                 'command': f'{venv_path}/bin/pip install microdot jinja2',
                 'success': install_reqs_result.returncode == 0,
