@@ -731,6 +731,159 @@ if __name__ == '__main__':
                 
         except Exception as e:
             return False, f"Error instalando pip en venv: {str(e)}"
+    
+    @staticmethod
+    def prepare_dev_environment(device_id, sudo_password=None):
+        """Preparar entorno de desarrollo completo en el dispositivo (enfoque UBTool)"""
+        try:
+            # Comandos para preparar el entorno de desarrollo
+            commands = [
+                # Actualizar listas de paquetes
+                ('apt update', 'Actualizando paquetes del sistema...'),
+                
+                # Instalar herramientas de desarrollo esenciales
+                ('apt install -y python3 python3-pip python3-venv build-essential git curl wget', 'Instalando herramientas de desarrollo...'),
+                
+                # Crear directorio global
+                ('mkdir -p /home/phablet/.ubtool', 'Creando directorio global...'),
+                
+                # Crear entorno virtual
+                ('python3 -m venv /home/phablet/.ubtool/venv', 'Creando entorno virtual global...'),
+                
+                # Actualizar pip en el entorno virtual
+                ('/home/phablet/.ubtool/venv/bin/pip install --upgrade pip', 'Actualizando pip en el venv...'),
+                
+                # Instalar paquetes esenciales
+                ('/home/phablet/.ubtool/venv/bin/pip install flask fastapi microdot jinja2 requests flask-cors', 'Instalando paquetes esenciales...')
+            ]
+            
+            results = []
+            for cmd, description in commands:
+                shell_cmd = ['adb', '-s', device_id, 'shell', cmd]
+                if sudo_password:
+                    shell_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S {cmd}']
+                
+                result = subprocess.run(shell_cmd, capture_output=True, text=True, timeout=300)
+                results.append({
+                    'command': cmd,
+                    'description': description,
+                    'success': result.returncode == 0,
+                    'output': result.stdout,
+                    'error': result.stderr
+                })
+                
+                if result.returncode != 0:
+                    return False, {
+                        'message': f'Error en: {description}',
+                        'failed_command': cmd,
+                        'error': result.stderr,
+                        'results': results
+                    }
+            
+            return True, {
+                'message': 'Entorno de desarrollo preparado exitosamente',
+                'venv_path': '/home/phablet/.ubtool/venv',
+                'python_path': '/home/phablet/.ubtool/venv/bin/python',
+                'pip_path': '/home/phablet/.ubtool/venv/bin/pip',
+                'results': results
+            }
+        except Exception as e:
+            return False, f"Error preparando entorno de desarrollo: {str(e)}"
+    
+    @staticmethod
+    def check_venv_status(device_id, venv_path='/home/phablet/.ubtool/venv'):
+        """Verificar estado del entorno virtual global"""
+        try:
+            # Verificar si el directorio del venv existe
+            check_cmd = f"test -d {venv_path} && echo 'exists' || echo 'not_exists'"
+            result = subprocess.run(['adb', '-s', device_id, 'shell', check_cmd], 
+                                  capture_output=True, text=True, timeout=10)
+            
+            if result.returncode == 0 and 'exists' in result.stdout:
+                # Verificar si python está disponible en el venv
+                python_check = f"test -f {venv_path}/bin/python && echo 'ready' || echo 'incomplete'"
+                python_result = subprocess.run(['adb', '-s', device_id, 'shell', python_check], 
+                                             capture_output=True, text=True, timeout=10)
+                
+                # Verificar si pip está disponible en el venv
+                pip_check = f"test -f {venv_path}/bin/pip && echo 'ready' || echo 'incomplete'"
+                pip_result = subprocess.run(['adb', '-s', device_id, 'shell', pip_check], 
+                                          capture_output=True, text=True, timeout=10)
+                
+                if python_result.returncode == 0 and 'ready' in python_result.stdout and \
+                   pip_result.returncode == 0 and 'ready' in pip_result.stdout:
+                    return True, {
+                        'status': 'ready',
+                        'message': 'Entorno global listo para usar',
+                        'venv_path': venv_path,
+                        'python_path': f'{venv_path}/bin/python',
+                        'pip_path': f'{venv_path}/bin/pip'
+                    }
+                else:
+                    return True, {
+                        'status': 'incomplete',
+                        'message': 'Entorno global incompleto',
+                        'venv_path': venv_path,
+                        'python_path': f'{venv_path}/bin/python',
+                        'pip_path': f'{venv_path}/bin/pip'
+                    }
+            else:
+                return True, {
+                    'status': 'not_created',
+                    'message': 'Entorno global no creado',
+                    'venv_path': venv_path,
+                    'python_path': 'N/A',
+                    'pip_path': 'N/A'
+                }
+        except Exception as e:
+            return False, f"Error verificando estado del venv: {str(e)}"
+    
+    @staticmethod
+    def list_venv_packages(device_id, venv_path='/home/phablet/.ubtool/venv'):
+        """Listar paquetes instalados en el entorno virtual"""
+        try:
+            global_venv_python = f"{venv_path}/bin/python"
+            
+            # List packages usando pip list
+            cmd = f"{global_venv_python} -m pip list --format=json"
+            result = subprocess.run(['adb', '-s', device_id, 'shell', cmd], 
+                                  capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                try:
+                    packages_data = json.loads(result.stdout)
+                    packages = []
+                    
+                    for pkg in packages_data:
+                        packages.append({
+                            'name': pkg.get('name', 'Unknown'),
+                            'version': pkg.get('version', 'N/A')
+                        })
+                    
+                    return True, {
+                        'packages': packages,
+                        'total': len(packages)
+                    }
+                except json.JSONDecodeError:
+                    # Fallback a parsing de texto plano
+                    lines = result.stdout.strip().split('\n')
+                    packages = []
+                    for line in lines:
+                        if '==' in line:
+                            name, version = line.split('==')
+                            packages.append({
+                                'name': name.strip(),
+                                'version': version.strip() if version else 'N/A'
+                            })
+                    
+                    return True, {
+                        'packages': packages,
+                        'total': len(packages)
+                    }
+            else:
+                return False, f'Error listando paquetes: {result.stderr}'
+        except Exception as e:
+            return False, f"Error listando paquetes: {str(e)}"
 
 @app.route('/')
 def home(request):
@@ -1025,6 +1178,40 @@ def api_install_pip_in_venv(request, device_id):
     sudo_password = data.get('sudo_password')
     
     success, result = ADBManager.install_pip_in_venv(device_id, env_path, sudo_password)
+    if success:
+        return Response(result, headers={'Content-Type': 'application/json'})
+    else:
+        return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/device/<device_id>/prepare-dev-env', methods=['POST'])
+def api_prepare_dev_env(request, device_id):
+    """API endpoint para preparar entorno de desarrollo completo"""
+    data = request.json
+    sudo_password = data.get('sudo_password')
+    
+    success, result = ADBManager.prepare_dev_environment(device_id, sudo_password)
+    if success:
+        return Response(result, headers={'Content-Type': 'application/json'})
+    else:
+        return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/device/<device_id>/venv-status')
+def api_venv_status(request, device_id):
+    """API endpoint para verificar estado del entorno virtual global"""
+    venv_path = request.args.get('venv_path', '/home/phablet/.ubtool/venv')
+    
+    success, result = ADBManager.check_venv_status(device_id, venv_path)
+    if success:
+        return Response(result, headers={'Content-Type': 'application/json'})
+    else:
+        return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/device/<device_id>/venv-packages')
+def api_venv_packages(request, device_id):
+    """API endpoint para listar paquetes del entorno virtual"""
+    venv_path = request.args.get('venv_path', '/home/phablet/.ubtool/venv')
+    
+    success, result = ADBManager.list_venv_packages(device_id, venv_path)
     if success:
         return Response(result, headers={'Content-Type': 'application/json'})
     else:
