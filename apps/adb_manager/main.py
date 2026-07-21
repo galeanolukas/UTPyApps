@@ -939,8 +939,8 @@ if __name__ == '__main__':
         """
         try:
             results = []
-            env_path = '~/utpyapps'
-            venv_path = '~/utpyapps/venv'
+            env_path = '/home/phablet/utpyapps'
+            venv_path = '/home/phablet/utpyapps/venv'
             
             # Si no se especifica local_apps_dir, usar el directorio actual
             if not local_apps_dir:
@@ -951,7 +951,7 @@ if __name__ == '__main__':
             stage1_result = subprocess.run(stage1_cmd, capture_output=True, text=True, timeout=30)
             results.append({
                 'stage': 1,
-                'description': 'Crear directorio principal ~/utpyapps',
+                'description': 'Crear directorio principal /home/phablet/utpyapps',
                 'command': f'mkdir -p {env_path}',
                 'success': stage1_result.returncode == 0,
                 'output': stage1_result.stdout,
