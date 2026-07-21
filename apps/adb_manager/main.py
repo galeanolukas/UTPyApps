@@ -609,11 +609,13 @@ if __name__ == '__main__':
         try:
             if url:
                 # Abrir con URL específica usando lomiri-url-dispatcher (método oficial de Lomiri)
-                result = subprocess.run(['adb', '-s', device_id, 'shell', 'lomiri-url-dispatcher', url],
+                # Ejecutar como usuario phablet para evitar problemas de permisos
+                result = subprocess.run(['adb', '-s', device_id, 'shell', 'runuser', '-l', 'phablet', '-c', f'lomiri-url-dispatcher {url}'],
                                       capture_output=True, text=True, timeout=15)
             else:
                 # Abrir morph-browser sin URL específica usando lomiri-app-launch
-                result = subprocess.run(['adb', '-s', device_id, 'shell', 'lomiri-app-launch', 'morph-browser'],
+                # Ejecutar como usuario phablet para evitar problemas de permisos
+                result = subprocess.run(['adb', '-s', device_id, 'shell', 'runuser', '-l', 'phablet', '-c', 'lomiri-app-launch morph-browser'],
                                       capture_output=True, text=True, timeout=15)
             
             return True, {
