@@ -927,12 +927,15 @@ if __name__ == '__main__':
     
     @staticmethod
     def setup_environment(device_id, sudo_password=None):
-        """Configurar entorno de desarrollo automáticamente en 3 etapas (sin sudo)
+        """Configurar entorno de desarrollo automáticamente en 6 etapas (sin sudo)
         
         Etapas:
         1. Crear directorio principal ~/utpyapps (sin sudo, en home del usuario)
-        2. Crear entorno virtual con python3 -m venv --without-pip (sin sudo)
-        3. Instalar pip dentro del venv y luego instalar requirements (sin sudo)
+        2. Crear estructura de directorios (apps, templates, static, etc.)
+        3. Crear entorno virtual con python3 -m venv --without-pip (sin sudo)
+        4. Instalar pip dentro del venv y luego instalar requirements (sin sudo)
+        5. Copiar main.py completo con sistema de montado dinámico
+        6. Crear archivo index.html básico en templates
         """
         try:
             results = []
@@ -959,39 +962,61 @@ if __name__ == '__main__':
                     'results': results
                 }
             
-            # Etapa 2: Crear entorno virtual con python3 nativo (sin sudo)
-            stage2_cmd = ['adb', '-s', device_id, 'shell', f'python3 -m venv --without-pip {venv_path}']
-            stage2_result = subprocess.run(stage2_cmd, capture_output=True, text=True, timeout=60)
+            # Etapa 2: Crear estructura de directorios (sin sudo)
+            dirs_to_create = [
+                f'{env_path}/apps',
+                f'{env_path}/templates',
+                f'{env_path}/static',
+                f'{env_path}/static/css',
+                f'{env_path}/static/js',
+                f'{env_path}/static/images'
+            ]
+            
+            for dir_path in dirs_to_create:
+                mkdir_cmd = ['adb', '-s', device_id, 'shell', f'mkdir -p {dir_path}']
+                mkdir_result = subprocess.run(mkdir_cmd, capture_output=True, text=True, timeout=15)
+                results.append({
+                    'stage': 2,
+                    'description': f'Crear directorio {dir_path}',
+                    'command': f'mkdir -p {dir_path}',
+                    'success': mkdir_result.returncode == 0,
+                    'output': mkdir_result.stdout,
+                    'error': mkdir_result.stderr
+                })
+            
+            # Etapa 3: Crear entorno virtual con python3 nativo (sin sudo)
+            stage3_cmd = ['adb', '-s', device_id, 'shell', f'python3 -m venv --without-pip {venv_path}']
+            stage3_result = subprocess.run(stage3_cmd, capture_output=True, text=True, timeout=60)
             results.append({
-                'stage': 2,
+                'stage': 3,
                 'description': 'Crear entorno virtual con python3 -m venv --without-pip',
                 'command': f'python3 -m venv --without-pip {venv_path}',
-                'success': stage2_result.returncode == 0,
-                'output': stage2_result.stdout,
-                'error': stage2_result.stderr
+                'success': stage3_result.returncode == 0,
+                'output': stage3_result.stdout,
+                'error': stage3_result.stderr
             })
             
-            if stage2_result.returncode != 0:
+            if stage3_result.returncode != 0:
                 return False, {
-                    'message': 'Error en etapa 2: No se pudo crear el entorno virtual',
-                    'failed_stage': 2,
-                    'error': stage2_result.stderr,
+                    'message': 'Error en etapa 3: No se pudo crear el entorno virtual',
+                    'failed_stage': 3,
+                    'error': stage3_result.stderr,
                     'results': results
                 }
             
-            # Etapa 3: Descargar get-pip.py (sin sudo, /tmp es escribible)
+            # Etapa 4: Descargar get-pip.py (sin sudo, /tmp es escribible)
             download_cmd = ['adb', '-s', device_id, 'shell', 'wget', 'https://bootstrap.pypa.io/get-pip.py', '-O', '/tmp/get-pip.py']
             download_result = subprocess.run(download_cmd, capture_output=True, text=True, timeout=30)
             
             if download_result.returncode != 0:
                 return False, {
-                    'message': 'Error en etapa 3: No se pudo descargar get-pip.py',
-                    'failed_stage': 3,
+                    'message': 'Error en etapa 4: No se pudo descargar get-pip.py',
+                    'failed_stage': 4,
                     'error': download_result.stderr,
                     'results': results
                 }
             
-            # Etapa 4: Instalar pip dentro del venv (sin sudo)
+            # Etapa 5: Instalar pip dentro del venv (sin sudo)
             install_pip_cmd = ['adb', '-s', device_id, 'shell', f'{venv_path}/bin/python3', '/tmp/get-pip.py']
             install_pip_result = subprocess.run(install_pip_cmd, capture_output=True, text=True, timeout=60)
             
@@ -1001,14 +1026,14 @@ if __name__ == '__main__':
             
             if install_pip_result.returncode != 0:
                 return False, {
-                    'message': 'Error en etapa 4: No se pudo instalar pip en el venv',
-                    'failed_stage': 4,
+                    'message': 'Error en etapa 5: No se pudo instalar pip en el venv',
+                    'failed_stage': 5,
                     'error': install_pip_result.stderr,
                     'results': results
                 }
             
             results.append({
-                'stage': 4,
+                'stage': 5,
                 'description': 'Instalar pip dentro del entorno virtual',
                 'command': f'{venv_path}/bin/python3 /tmp/get-pip.py',
                 'success': install_pip_result.returncode == 0,
@@ -1016,12 +1041,12 @@ if __name__ == '__main__':
                 'error': install_pip_result.stderr
             })
             
-            # Etapa 5: Instalar requirements básicos (microdot, jinja2)
+            # Etapa 6: Instalar requirements básicos (microdot, jinja2)
             install_reqs_cmd = ['adb', '-s', device_id, 'shell', f'{venv_path}/bin/pip', 'install', 'microdot', 'jinja2']
             install_reqs_result = subprocess.run(install_reqs_cmd, capture_output=True, text=True, timeout=120)
             
             results.append({
-                'stage': 5,
+                'stage': 6,
                 'description': 'Instalar requirements básicos (microdot, jinja2)',
                 'command': f'{venv_path}/bin/pip install microdot jinja2',
                 'success': install_reqs_result.returncode == 0,
@@ -1029,8 +1054,341 @@ if __name__ == '__main__':
                 'error': install_reqs_result.stderr
             })
             
+            # Etapa 7: Crear main.py completo con sistema de montado dinámico
+            main_py_content = '''#!/usr/bin/env python3
+# UTPyApps - Meta-Lanzador para Ubuntu Touch
+# Este archivo se genera automáticamente
+
+from microdot import Microdot, Response
+from microdot.cors import CORS
+from jinja2 import Environment, FileSystemLoader
+import json
+import os
+import importlib.util
+import mimetypes
+import subprocess
+import sys
+
+app = Microdot()
+CORS(app, allowed_origins="*", allow_credentials=True)
+Response.default_content_type = 'text/html'
+
+# Configurar entorno
+BASE_DIR = os.path.expanduser('~/utpyapps')
+TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
+STATIC_DIR = os.path.join(BASE_DIR, 'static')
+APPS_DIR = os.path.join(BASE_DIR, 'apps')
+
+env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
+
+# Diccionario para almacenar apps montadas
+mounted_apps = {}
+
+def check_package_installed(package_name):
+    """Verificar si un paquete está instalado"""
+    try:
+        clean_name = package_name.split('>=')[0].split('==')[0].split('<=')[0].split('~=')[0]
+        __import__(clean_name)
+        return True
+    except ImportError:
+        return False
+
+def install_app_dependencies(app_folder, requirements):
+    """Instalar dependencias de una app usando pip"""
+    if not requirements or len(requirements) == 0:
+        return True, "No dependencies required"
+    
+    try:
+        # Usar pip del entorno virtual si existe
+        venv_pip = os.path.join(BASE_DIR, 'venv', 'bin', 'pip')
+        if os.path.exists(venv_pip):
+            pip_cmd = [venv_pip, 'install'] + requirements
+        else:
+            pip_cmd = [sys.executable, '-m', 'pip', 'install'] + requirements
+        
+        print(f"📦 Instalando dependencias para app: {app_folder}")
+        result = subprocess.run(pip_cmd, capture_output=True, text=True, timeout=120)
+        
+        if result.returncode == 0:
+            print(f"✅ Dependencias instaladas: {len(requirements)} paquetes")
+            return True, f"Dependencies installed: {len(requirements)} packages"
+        else:
+            return False, f"Error installing dependencies: {result.stderr}"
+    except Exception as e:
+        return False, f"Error installing dependencies: {str(e)}"
+
+def install_app_dependencies_smart(app_folder, requirements):
+    """Instalar solo las dependencias que no están presentes"""
+    if not requirements or len(requirements) == 0:
+        return True, "No dependencies required"
+    
+    missing_deps = []
+    for req in requirements:
+        package_name = req.split('>=')[0].split('==')[0].split('<=')[0].split('~=')[0]
+        if not check_package_installed(package_name):
+            missing_deps.append(req)
+    
+    if not missing_deps:
+        print(f"✅ Todas las dependencias ya están instaladas")
+        return True, "All dependencies already installed"
+    
+    return install_app_dependencies(app_folder, missing_deps)
+
+def import_module_from_file(module_name, filepath):
+    """Importar un módulo desde archivo"""
+    try:
+        spec = importlib.util.spec_from_file_location(module_name, filepath)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    except Exception as e:
+        print(f"Error importando {module_name}: {e}")
+        return None
+
+def cargar_app_manifest(nombre):
+    """Cargar manifest de una app"""
+    manifest_path = os.path.join(APPS_DIR, nombre, 'app.json')
+    if os.path.exists(manifest_path):
+        with open(manifest_path) as f:
+            return json.load(f)
+    return None
+
+def install_apps(current_app):
+    """Instalar y montar todas las apps dinámicamente"""
+    if not os.path.exists(APPS_DIR):
+        return current_app
+    
+    excepciones = ["__pycache__", ".DS_Store", "README.md"]
+    
+    for app_folder in os.listdir(APPS_DIR):
+        if app_folder in excepciones:
+            continue
+            
+        app_path = os.path.join(APPS_DIR, app_folder)
+        if not os.path.isdir(app_path):
+            continue
+            
+        # Buscar archivo principal
+        app_file = None
+        for filename in ["main.py", f"{app_folder}.py", "logic.py"]:
+            file_path = os.path.join(app_path, filename)
+            if os.path.exists(file_path):
+                app_file = file_path
+                break
+        
+        if not app_file:
+            continue
+            
+        try:
+            # Cargar manifest y verificar dependencias
+            manifest = cargar_app_manifest(app_folder)
+            if manifest and 'requirements' in manifest:
+                success, msg = install_app_dependencies_smart(app_folder, manifest['requirements'])
+                if not success:
+                    print(f"⚠️ App {app_folder}: {msg}")
+                    continue
+            
+            # Importar módulo
+            module = import_module_from_file(app_folder, app_file)
+            
+            # Buscar la aplicación Microdot en el módulo
+            sub_app = None
+            if module:
+                if hasattr(module, 'app') and isinstance(getattr(module, 'app'), Microdot):
+                    sub_app = getattr(module, 'app')
+                else:
+                    for attr_name in dir(module):
+                        attr = getattr(module, attr_name)
+                        if isinstance(attr, Microdot):
+                            sub_app = attr
+                            break
+            
+            if sub_app:
+                current_app.mount(sub_app, url_prefix=f'/_app/{app_folder}')
+                mounted_apps[app_folder] = sub_app
+                print(f"✅ App {app_folder} montada correctamente")
+            else:
+                print(f"⚠️ App {app_folder} no define una aplicación Microdot válida")
+                
+        except Exception as e:
+            print(f"❌ Error instalando {app_folder}: {e}")
+    
+    return current_app
+
+def cargar_apps():
+    """Cargar lista de apps instaladas"""
+    apps = []
+    if os.path.exists(APPS_DIR):
+        for app_folder in os.listdir(APPS_DIR):
+            manifest_path = os.path.join(APPS_DIR, app_folder, 'app.json')
+            if os.path.exists(manifest_path):
+                with open(manifest_path) as f:
+                    app_info = json.load(f)
+                    if not app_info.get('hidden', False):
+                        app_info['folder'] = app_folder
+                        apps.append(app_info)
+    return apps
+
+@app.route('/')
+async def index(request):
+    """Dashboard principal"""
+    apps = cargar_apps()
+    template = env.get_template('index.html')
+    return Response(template.render(apps=apps))
+
+@app.route('/static/<path:path>')
+async def static_files(request, path):
+    """Servir archivos estáticos globales"""
+    static_root = os.path.abspath(STATIC_DIR)
+    requested_path = os.path.abspath(os.path.join(static_root, path))
+
+    if not (requested_path == static_root or requested_path.startswith(static_root + os.sep)):
+        return Response('Not found', status_code=404)
+
+    if not os.path.isfile(requested_path):
+        return Response('Not found', status_code=404)
+
+    content_type, _ = mimetypes.guess_type(requested_path)
+    if content_type is None:
+        content_type = 'text/plain'
+
+    with open(requested_path, 'rb') as f:
+        content = f.read()
+
+    return Response(content, headers={'Content-Type': content_type})
+
+@app.route('/_app/<app_name>/static/<path:path>')
+async def app_static_files(request, app_name, path):
+    """Servir archivos estáticos de apps"""
+    app_static_root = os.path.abspath(os.path.join(APPS_DIR, app_name, 'static'))
+    requested_path = os.path.abspath(os.path.join(app_static_root, path))
+
+    if not (requested_path == app_static_root or requested_path.startswith(app_static_root + os.sep)):
+        return Response('Not found', status_code=404)
+
+    if not os.path.isfile(requested_path):
+        return Response('Not found', status_code=404)
+
+    content_type, _ = mimetypes.guess_type(requested_path)
+    if content_type is None:
+        content_type = 'text/plain'
+
+    with open(requested_path, 'rb') as f:
+        content = f.read()
+
+    return Response(content, headers={'Content-Type': content_type})
+
+if __name__ == '__main__':
+    print("🚀 Iniciando UTPyApps en Ubuntu Touch")
+    print(f"📁 Base DIR: {BASE_DIR}")
+    print(f"📁 Apps DIR: {APPS_DIR}")
+    
+    # Montar todas las apps
+    install_apps(app)
+    
+    print(f"🌐 Servidor disponible en: http://0.0.0.0:8080")
+    app.run(host='0.0.0.0', port=8080)
+'''
+            
+            # Escribir main.py en el dispositivo
+            temp_main = '/tmp/utpyapps_main.py'
+            with open(temp_main, 'w') as f:
+                f.write(main_py_content)
+            
+            push_result = subprocess.run(['adb', '-s', device_id, 'push', temp_main, f'{env_path}/main.py'],
+                                       capture_output=True, text=True, timeout=30)
+            
+            os.remove(temp_main)
+            
+            results.append({
+                'stage': 7,
+                'description': 'Crear main.py con sistema de montado dinámico',
+                'command': f'push main.py a {env_path}/main.py',
+                'success': push_result.returncode == 0,
+                'output': push_result.stdout,
+                'error': push_result.stderr
+            })
+            
+            # Etapa 8: Crear index.html básico en templates
+            index_html_content = '''<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UTPyApps - Ubuntu Touch</title>
+    <link rel="stylesheet" href="/static/css/w3.css">
+    <style>
+        body {
+            background: #1a1a2e;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .app-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .app-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .app-description {
+            color: #888;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 UTPyApps</h1>
+        <p>Meta-lanzador para Ubuntu Touch</p>
+        
+        {% if apps %}
+        <h2>Apps Instaladas</h2>
+        {% for app in apps %}
+        <div class="app-card">
+            <div class="app-name">{{ app.name }}</div>
+            <div class="app-description">{{ app.description }}</div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p>No hay apps instaladas aún.</p>
+        {% endif %}
+    </div>
+</body>
+</html>
+'''
+            
+            # Escribir index.html en el dispositivo
+            temp_index = '/tmp/utpyapps_index.html'
+            with open(temp_index, 'w') as f:
+                f.write(index_html_content)
+            
+            push_index_result = subprocess.run(['adb', '-s', device_id, 'push', temp_index, f'{env_path}/templates/index.html'],
+                                              capture_output=True, text=True, timeout=30)
+            
+            os.remove(temp_index)
+            
+            results.append({
+                'stage': 8,
+                'description': 'Crear index.html básico en templates',
+                'command': f'push index.html a {env_path}/templates/index.html',
+                'success': push_index_result.returncode == 0,
+                'output': push_index_result.stdout,
+                'error': push_index_result.stderr
+            })
+            
             return True, {
-                'message': 'Entorno configurado exitosamente',
+                'message': 'Entorno configurado exitosamente con estructura completa',
                 'env_path': env_path,
                 'venv_path': venv_path,
                 'python_path': f'{venv_path}/bin/python3',
