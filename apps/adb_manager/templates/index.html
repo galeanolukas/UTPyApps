@@ -201,48 +201,14 @@
     <main class="main-content w3-container">
         <div class="w3-row-padding">
             <div class="w3-col l12 m12 s12">
-                <!-- ADB Status Card -->
-                <div class="card">
-                    <div class="card-header">
-                        <span>Estado ADB</span>
-                        <div style="width: 40px; height: 40px; background: rgba(255, 255, 255, 0.2); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                            <span style="font-size: 20px;">📱</span>
-                        </div>
-                    </div>
-                    <div style="padding: 24px;">
-                        {% if adb_available %}
-                        <div style="margin-bottom: 16px;">
-                            <span class="status-badge status-online">ADB Disponible</span>
-                        </div>
-                        <p style="color: #888; font-size: 14px; margin: 8px 0;">{{ adb_info }}</p>
-                        {% else %}
-                        <div style="margin-bottom: 16px;">
-                            <span class="status-badge status-offline">ADB No Disponible</span>
-                        </div>
-                        <p style="color: #888; font-size: 14px; margin: 8px 0;">{{ adb_info }}</p>
-                        <div style="background: rgba(231, 76, 60, 0.1); border: 1px solid rgba(231, 76, 60, 0.3); border-radius: 12px; padding: 16px; margin-top: 16px;">
-                            <p style="color: #e74c3c; font-size: 13px; margin: 0;">
-                                <strong>Instalar ADB:</strong><br>
-                                Ubuntu/Debian: <code style="color: #E95420;">sudo apt install adb</code><br>
-                                Fedora: <code style="color: #E95420;">sudo dnf install android-tools</code>
-                            </p>
-                        </div>
-                        {% endif %}
-                        
-                        <button onclick="refreshDevices()" class="btn-action btn-primary" style="width: 100%; margin-top: 16px;">
-                            🔄 Actualizar Dispositivos
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Devices List -->
+                {% if devices %}
+                <!-- Devices List (only shown when devices are connected) -->
                 <div class="card">
                     <div class="card-header">
                         <span>Dispositivos Conectados</span>
                         <span id="device-count" style="background: rgba(255, 255, 255, 0.2); padding: 4px 12px; border-radius: 12px; font-size: 13px;">{{ devices|length }}</span>
                     </div>
                     <div style="padding: 24px;">
-                        {% if devices %}
                         {% for device in devices %}
                         <div class="device-card">
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
@@ -269,15 +235,78 @@
                             </div>
                         </div>
                         {% endfor %}
-                        {% else %}
-                        <div class="w3-center" style="padding: 48px 0;">
-                            <div style="font-size: 64px; margin-bottom: 16px;">📱</div>
-                            <p style="color: #888; font-size: 16px; margin: 0;">No hay dispositivos conectados</p>
-                            <p style="color: #888; font-size: 14px; margin: 8px 0 0 0;">Conecta tu dispositivo Ubuntu Touch via USB</p>
-                        </div>
-                        {% endif %}
                     </div>
                 </div>
+                {% else %}
+                <!-- Tutorial Screen (shown when no devices are connected) -->
+                <div class="card">
+                    <div class="card-header">
+                        <span>📱 Conectar Dispositivo Ubuntu Touch</span>
+                    </div>
+                    <div style="padding: 32px;">
+                        <div class="w3-center" style="margin-bottom: 32px;">
+                            <div style="font-size: 80px; margin-bottom: 16px;">📱</div>
+                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 24px; font-weight: 600;">No hay dispositivos conectados</h3>
+                            <p style="color: #888; font-size: 15px; margin: 0;">Sigue estos pasos para conectar tu dispositivo Ubuntu Touch</p>
+                        </div>
+                        
+                        <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 24px; margin-bottom: 20px;">
+                            <h4 style="color: #E95420; margin: 0 0 16px 0; font-size: 16px; font-weight: 600;">📋 Pasos para activar ADB en Ubuntu Touch</h4>
+                            
+                            <div style="margin-bottom: 20px;">
+                                <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px;">
+                                    <div style="background: #E95420; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; flex-shrink: 0;">1</div>
+                                    <div>
+                                        <p style="color: white; margin: 0 0 4px 0; font-size: 14px; font-weight: 500;">Abre la app <strong>Configuración del Sistema</strong></p>
+                                        <p style="color: #888; margin: 0; font-size: 13px;">Ve a la configuración de tu dispositivo</p>
+                                    </div>
+                                </div>
+                                
+                                <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px;">
+                                    <div style="background: #E95420; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; flex-shrink: 0;">2</div>
+                                    <div>
+                                        <p style="color: white; margin: 0 0 4px 0; font-size: 14px; font-weight: 500;">Navega a <strong>Desarrollador</strong></p>
+                                        <p style="color: #888; margin: 0; font-size: 13px;">Encuentra la sección de opciones de desarrollador</p>
+                                    </div>
+                                </div>
+                                
+                                <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px;">
+                                    <div style="background: #E95420; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; flex-shrink: 0;">3</div>
+                                    <div>
+                                        <p style="color: white; margin: 0 0 4px 0; font-size: 14px; font-weight: 500;">Activa <strong>Modo Desarrollador</strong></p>
+                                        <p style="color: #888; margin: 0; font-size: 13px;">Habilita las opciones de desarrollador en tu dispositivo</p>
+                                    </div>
+                                </div>
+                                
+                                <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px;">
+                                    <div style="background: #E95420; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; flex-shrink: 0;">4</div>
+                                    <div>
+                                        <p style="color: white; margin: 0 0 4px 0; font-size: 14px; font-weight: 500;">Activa <strong>Depuración ADB</strong></p>
+                                        <p style="color: #888; margin: 0; font-size: 13px;">Permite la conexión por ADB desde tu computadora</p>
+                                    </div>
+                                </div>
+                                
+                                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                                    <div style="background: #E95420; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; flex-shrink: 0;">5</div>
+                                    <div>
+                                        <p style="color: white; margin: 0 0 4px 0; font-size: 14px; font-weight: 500;">Conecta por USB</p>
+                                        <p style="color: #888; margin: 0; font-size: 13px;">Conecta tu dispositivo a la computadora con cable USB</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="background: rgba(231, 76, 60, 0.1); border: 1px solid rgba(231, 76, 60, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                            <h4 style="color: #e74c3c; margin: 0 0 12px 0; font-size: 15px; font-weight: 600;">⚠️ Acepta la conexión en tu dispositivo</h4>
+                            <p style="color: #888; margin: 0; font-size: 14px;">Cuando conectes el dispositivo, aparecerá una ventana pidiendo autorización. Acepta la conexión para permitir el acceso ADB.</p>
+                        </div>
+                        
+                        <button onclick="refreshDevices()" class="btn-action btn-primary" style="width: 100%; padding: 16px; font-size: 16px;">
+                            🔄 Verificar Conexión
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
 
                 <!-- Shell Terminal -->
                 <div id="shell-panel" class="card" style="display: none;">
