@@ -733,62 +733,139 @@ if __name__ == '__main__':
             return False, f"Error instalando pip en venv: {str(e)}"
     
     @staticmethod
-    def prepare_dev_environment(device_id, sudo_password=None):
-        """Preparar entorno de desarrollo completo en el dispositivo (enfoque UBTool)"""
+    def setup_environment(device_id, sudo_password=None):
+        """Configurar entorno de desarrollo automáticamente en 3 etapas
+        
+        Etapas:
+        1. Verificar/crear directorio principal ~/utpyapps y limpiar venv existente si pertenece a root
+        2. Crear entorno virtual con python3 -m venv --without-pip (sin sudo)
+        3. Instalar pip dentro del venv y luego instalar requirements
+        """
         try:
-            # Comandos para preparar el entorno de desarrollo
-            commands = [
-                # Actualizar listas de paquetes
-                ('apt update', 'Actualizando paquetes del sistema...'),
-                
-                # Instalar herramientas de desarrollo esenciales
-                ('apt install -y python3 python3-pip python3-venv build-essential git curl wget', 'Instalando herramientas de desarrollo...'),
-                
-                # Crear directorio global
-                ('mkdir -p /home/phablet/.ubtool', 'Creando directorio global...'),
-                
-                # Crear entorno virtual
-                ('python3 -m venv /home/phablet/.ubtool/venv', 'Creando entorno virtual global...'),
-                
-                # Actualizar pip en el entorno virtual
-                ('/home/phablet/.ubtool/venv/bin/pip install --upgrade pip', 'Actualizando pip en el venv...'),
-                
-                # Instalar paquetes esenciales
-                ('/home/phablet/.ubtool/venv/bin/pip install flask fastapi microdot jinja2 requests flask-cors', 'Instalando paquetes esenciales...')
-            ]
-            
             results = []
-            for cmd, description in commands:
-                shell_cmd = ['adb', '-s', device_id, 'shell', cmd]
-                if sudo_password:
-                    shell_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S {cmd}']
-                
-                result = subprocess.run(shell_cmd, capture_output=True, text=True, timeout=300)
+            env_path = '~/utpyapps'
+            venv_path = '~/utpyapps/venv'
+            
+            # Etapa 1: Verificar/crear directorio principal y limpiar venv existente si es necesario
+            if sudo_password:
+                # Limpiar venv existente si pertenece a root
+                cleanup_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S rm -rf {venv_path}']
+                cleanup_result = subprocess.run(cleanup_cmd, capture_output=True, text=True, timeout=30)
                 results.append({
-                    'command': cmd,
-                    'description': description,
-                    'success': result.returncode == 0,
-                    'output': result.stdout,
-                    'error': result.stderr
+                    'stage': 0,
+                    'description': 'Limpiar venv existente si pertenece a root',
+                    'command': f'sudo rm -rf {venv_path}',
+                    'success': True,  # No es crítico si falla
+                    'output': cleanup_result.stdout,
+                    'error': cleanup_result.stderr
                 })
-                
-                if result.returncode != 0:
-                    return False, {
-                        'message': f'Error en: {description}',
-                        'failed_command': cmd,
-                        'error': result.stderr,
-                        'results': results
-                    }
+            
+            stage1_cmd = ['adb', '-s', device_id, 'shell', f'mkdir -p {env_path} && chmod 755 {env_path}']
+            if sudo_password:
+                stage1_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S mkdir -p {env_path} && sudo -S chmod 755 {env_path}']
+            
+            stage1_result = subprocess.run(stage1_cmd, capture_output=True, text=True, timeout=30)
+            results.append({
+                'stage': 1,
+                'description': 'Verificar/crear directorio principal con permisos',
+                'command': f'mkdir -p {env_path} && chmod 755 {env_path}',
+                'success': stage1_result.returncode == 0,
+                'output': stage1_result.stdout,
+                'error': stage1_result.stderr
+            })
+            
+            if stage1_result.returncode != 0:
+                return False, {
+                    'message': 'Error en etapa 1: No se pudo crear el directorio principal',
+                    'failed_stage': 1,
+                    'error': stage1_result.stderr,
+                    'results': results
+                }
+            
+            # Etapa 2: Crear entorno virtual con python3 nativo (sin sudo para que sea del usuario)
+            stage2_cmd = ['adb', '-s', device_id, 'shell', f'python3 -m venv --without-pip {venv_path}']
+            stage2_result = subprocess.run(stage2_cmd, capture_output=True, text=True, timeout=60)
+            results.append({
+                'stage': 2,
+                'description': 'Crear entorno virtual con python3 -m venv --without-pip',
+                'command': f'python3 -m venv --without-pip {venv_path}',
+                'success': stage2_result.returncode == 0,
+                'output': stage2_result.stdout,
+                'error': stage2_result.stderr
+            })
+            
+            if stage2_result.returncode != 0:
+                return False, {
+                    'message': 'Error en etapa 2: No se pudo crear el entorno virtual',
+                    'failed_stage': 2,
+                    'error': stage2_result.stderr,
+                    'results': results
+                }
+            
+            # Etapa 3: Instalar pip dentro del venv usando get-pip.py
+            # Descargar get-pip.py
+            download_cmd = ['adb', '-s', device_id, 'shell', 'wget', 'https://bootstrap.pypa.io/get-pip.py', '-O', '/tmp/get-pip.py']
+            if sudo_password:
+                download_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py']
+            
+            download_result = subprocess.run(download_cmd, capture_output=True, text=True, timeout=30)
+            
+            if download_result.returncode != 0:
+                return False, {
+                    'message': 'Error en etapa 3: No se pudo descargar get-pip.py',
+                    'failed_stage': 3,
+                    'error': download_result.stderr,
+                    'results': results
+                }
+            
+            # Instalar pip dentro del venv (sin sudo para que sea del usuario)
+            install_pip_cmd = ['adb', '-s', device_id, 'shell', f'{venv_path}/bin/python3', '/tmp/get-pip.py']
+            install_pip_result = subprocess.run(install_pip_cmd, capture_output=True, text=True, timeout=60)
+            
+            # Limpiar archivo temporal
+            subprocess.run(['adb', '-s', device_id, 'shell', 'rm', '/tmp/get-pip.py'],
+                          capture_output=True, text=True, timeout=10)
+            
+            if install_pip_result.returncode != 0:
+                return False, {
+                    'message': 'Error en etapa 3: No se pudo instalar pip en el venv',
+                    'failed_stage': 3,
+                    'error': install_pip_result.stderr,
+                    'results': results
+                }
+            
+            results.append({
+                'stage': 3,
+                'description': 'Instalar pip dentro del entorno virtual',
+                'command': f'{venv_path}/bin/python3 /tmp/get-pip.py',
+                'success': install_pip_result.returncode == 0,
+                'output': install_pip_result.stdout,
+                'error': install_pip_result.stderr
+            })
+            
+            # Instalar requirements básicos (microdot, jinja2)
+            install_reqs_cmd = ['adb', '-s', device_id, 'shell', f'{venv_path}/bin/pip', 'install', 'microdot', 'jinja2']
+            install_reqs_result = subprocess.run(install_reqs_cmd, capture_output=True, text=True, timeout=120)
+            
+            results.append({
+                'stage': 4,
+                'description': 'Instalar requirements básicos (microdot, jinja2)',
+                'command': f'{venv_path}/bin/pip install microdot jinja2',
+                'success': install_reqs_result.returncode == 0,
+                'output': install_reqs_result.stdout,
+                'error': install_reqs_result.stderr
+            })
             
             return True, {
-                'message': 'Entorno de desarrollo preparado exitosamente',
-                'venv_path': '/home/phablet/.ubtool/venv',
-                'python_path': '/home/phablet/.ubtool/venv/bin/python',
-                'pip_path': '/home/phablet/.ubtool/venv/bin/pip',
+                'message': 'Entorno configurado exitosamente',
+                'env_path': env_path,
+                'venv_path': venv_path,
+                'python_path': f'{venv_path}/bin/python3',
+                'pip_path': f'{venv_path}/bin/pip',
                 'results': results
             }
         except Exception as e:
-            return False, f"Error preparando entorno de desarrollo: {str(e)}"
+            return False, f"Error configurando entorno: {str(e)}"
     
     @staticmethod
     def check_venv_status(device_id, venv_path='/home/phablet/.ubtool/venv'):
@@ -1183,35 +1260,13 @@ def api_install_pip_in_venv(request, device_id):
     else:
         return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
 
-@app.route('/api/device/<device_id>/prepare-dev-env', methods=['POST'])
-def api_prepare_dev_env(request, device_id):
-    """API endpoint para preparar entorno de desarrollo completo"""
+@app.route('/api/device/<device_id>/setup-environment', methods=['POST'])
+def api_setup_environment(request, device_id):
+    """API endpoint para configurar entorno de desarrollo automáticamente"""
     data = request.json
     sudo_password = data.get('sudo_password')
     
-    success, result = ADBManager.prepare_dev_environment(device_id, sudo_password)
-    if success:
-        return Response(result, headers={'Content-Type': 'application/json'})
-    else:
-        return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
-
-@app.route('/api/device/<device_id>/venv-status')
-def api_venv_status(request, device_id):
-    """API endpoint para verificar estado del entorno virtual global"""
-    venv_path = request.args.get('venv_path', '/home/phablet/.ubtool/venv')
-    
-    success, result = ADBManager.check_venv_status(device_id, venv_path)
-    if success:
-        return Response(result, headers={'Content-Type': 'application/json'})
-    else:
-        return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
-
-@app.route('/api/device/<device_id>/venv-packages')
-def api_venv_packages(request, device_id):
-    """API endpoint para listar paquetes del entorno virtual"""
-    venv_path = request.args.get('venv_path', '/home/phablet/.ubtool/venv')
-    
-    success, result = ADBManager.list_venv_packages(device_id, venv_path)
+    success, result = ADBManager.setup_environment(device_id, sudo_password)
     if success:
         return Response(result, headers={'Content-Type': 'application/json'})
     else:

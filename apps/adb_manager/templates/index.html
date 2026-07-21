@@ -257,41 +257,14 @@
                             </div>
                         </div>
 
-                        <!-- Environment Setup -->
+                        <!-- Environment Setup (Simplified) -->
                         <div style="margin-bottom: 16px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
-                            <h4 style="color: white; font-size: 13px; margin: 0 0 8px 0;">📁 Crear Entorno UTPyApps</h4>
-                            <p style="color: #AEA79F; font-size: 11px; margin: 0 0 8px 0;">Crea la estructura de directorios y archivos necesarios en ~/utpyapps</p>
-                            <button onclick="createUTPyAppsEnvironment(currentUTPyAppsDeviceId)" class="btn-action btn-primary">Crear Entorno</button>
-                        </div>
-
-                        <!-- Virtual Environment -->
-                        <div style="margin-bottom: 16px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
-                            <h4 style="color: white; font-size: 13px; margin: 0 0 8px 0;">🔧 Entorno Virtual (UTPyApps)</h4>
-                            <p style="color: #AEA79F; font-size: 11px; margin: 0 0 8px 0;">Crear y gestionar entorno virtual Python para UTPyApps</p>
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
-                                <button onclick="createVirtualenv(currentUTPyAppsDeviceId)" class="btn-action btn-primary">Crear venv</button>
-                                <button onclick="installPipInVenv(currentUTPyAppsDeviceId)" class="btn-action">📦 Instalar pip en venv</button>
+                            <h4 style="color: white; font-size: 13px; margin: 0 0 8px 0;">� Configurar Entorno de Desarrollo</h4>
+                            <p style="color: #AEA79F; font-size: 11px; margin: 0 0 8px 0;">Configura automáticamente el entorno para instalar y probar apps en el dispositivo</p>
+                            <div id="setup-status" class="terminal-output" style="min-height: 60px; margin-bottom: 8px;">
+                                <div style="color: #AEA79F;">Haz clic en "Configurar Entorno" para iniciar la configuración automática.</div>
                             </div>
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                <input type="text" id="package-input" placeholder="Paquete (ej: microdot)" style="flex: 1; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 8px 12px; color: white; font-size: 12px;">
-                                <button onclick="installPackage(currentUTPyAppsDeviceId)" class="btn-action">Instalar</button>
-                            </div>
-                            <div id="venv-status" class="terminal-output" style="margin-top: 8px; display: none;"></div>
-                        </div>
-
-                        <!-- Global Development Environment -->
-                        <div style="margin-bottom: 16px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
-                            <h4 style="color: white; font-size: 13px; margin: 0 0 8px 0;">🌍 Entorno Global (UBTool)</h4>
-                            <p style="color: #AEA79F; font-size: 11px; margin: 0 0 8px 0;">Entorno de desarrollo compartido en /home/phablet/.ubtool/venv</p>
-                            <div id="global-venv-status" class="terminal-output" style="min-height: 40px; margin-bottom: 8px;">
-                                <div style="color: #AEA79F;">Haz clic en "Verificar Estado" para comprobar el entorno global.</div>
-                            </div>
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
-                                <button onclick="checkGlobalVenvStatus(currentUTPyAppsDeviceId)" class="btn-action">Verificar Estado</button>
-                                <button onclick="prepareGlobalDevEnv(currentUTPyAppsDeviceId)" class="btn-action btn-primary">🚀 Preparar Entorno</button>
-                                <button onclick="listGlobalPackages(currentUTPyAppsDeviceId)" class="btn-action">📋 Listar Paquetes</button>
-                            </div>
-                            <div id="global-packages-list" class="terminal-output" style="margin-top: 8px; display: none;"></div>
+                            <button onclick="setupEnvironment(currentUTPyAppsDeviceId)" class="btn-action btn-primary" style="width: 100%;">⚙️ Configurar Entorno</button>
                         </div>
 
                         <!-- App Copy -->
@@ -682,60 +655,12 @@
             });
         }
 
-        function installPipInVenv(deviceId) {
+        function setupEnvironment(deviceId) {
             showSudoModal((password) => {
-                const statusDiv = document.getElementById('venv-status');
-                statusDiv.style.display = 'block';
-                statusDiv.innerHTML = '<div class="loading-spinner"></div> Instalando pip en el entorno virtual...';
+                const statusDiv = document.getElementById('setup-status');
+                statusDiv.innerHTML = '<div class="loading-spinner"></div> Configurando entorno...';
                 
-                fetch(`/_app/adb_manager/api/device/${deviceId}/install-pip-in-venv`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ env_path: '~/utpyapps/venv', sudo_password: password })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
-                    } else {
-                        statusDiv.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}</div>`;
-                    }
-                })
-                .catch(error => {
-                    statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
-                });
-            });
-        }
-
-        function checkGlobalVenvStatus(deviceId) {
-            const statusDiv = document.getElementById('global-venv-status');
-            statusDiv.innerHTML = '<div class="loading-spinner"></div> Verificando estado del entorno global...';
-            
-            fetch(`/_app/adb_manager/api/device/${deviceId}/venv-status`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
-                    } else {
-                        let html = '<div style="color: white;">';
-                        html += `<div style="margin: 4px 0;"><strong style="color: #E95420;">Estado:</strong> ${data.status}</div>`;
-                        html += `<div style="margin: 4px 0;"><strong style="color: #E95420;">Mensaje:</strong> ${data.message}</div>`;
-                        html += `<div style="margin: 4px 0;"><strong style="color: #E95420;">Ruta:</strong> ${data.venv_path}</div>`;
-                        html += '</div>';
-                        statusDiv.innerHTML = html;
-                    }
-                })
-                .catch(error => {
-                    statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
-                });
-        }
-
-        function prepareGlobalDevEnv(deviceId) {
-            showSudoModal((password) => {
-                const statusDiv = document.getElementById('global-venv-status');
-                statusDiv.innerHTML = '<div class="loading-spinner"></div> Preparando entorno de desarrollo...';
-                
-                fetch(`/_app/adb_manager/api/device/${deviceId}/prepare-dev-env`, {
+                fetch(`/_app/adb_manager/api/device/${deviceId}/setup-environment`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ sudo_password: password })
@@ -743,13 +668,32 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
-                        statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                        let html = '<div style="color: #e74c3c;">';
+                        html += `<div>❌ ${data.error}</div>`;
+                        if (data.results) {
+                            html += '<div style="margin-top: 8px; font-size: 11px;">';
+                            data.results.forEach(result => {
+                                const icon = result.success ? '✅' : '❌';
+                                html += `<div>${icon} Etapa ${result.stage}: ${result.description}</div>`;
+                            });
+                            html += '</div>';
+                        }
+                        html += '</div>';
+                        statusDiv.innerHTML = html;
                     } else {
                         let html = '<div style="color: #00ff00;">';
                         html += `<div>✅ ${data.message}</div>`;
-                        html += `<div style="margin: 8px 0;"><strong>Venv:</strong> ${data.venv_path}</div>`;
+                        html += '<div style="margin-top: 8px; font-size: 11px;">';
+                        data.results.forEach(result => {
+                            const icon = result.success ? '✅' : '❌';
+                            html += `<div>${icon} Etapa ${result.stage}: ${result.description}</div>`;
+                        });
+                        html += '</div>';
+                        html += `<div style="margin-top: 8px; font-size: 11px;">`;
+                        html += `<div><strong>Venv:</strong> ${data.venv_path}</div>`;
                         html += `<div><strong>Python:</strong> ${data.python_path}</div>`;
                         html += `<div><strong>Pip:</strong> ${data.pip_path}</div>`;
+                        html += '</div>';
                         html += '</div>';
                         statusDiv.innerHTML = html;
                     }
@@ -758,34 +702,6 @@
                     statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
                 });
             });
-        }
-
-        function listGlobalPackages(deviceId) {
-            const packagesDiv = document.getElementById('global-packages-list');
-            packagesDiv.style.display = 'block';
-            packagesDiv.innerHTML = '<div class="loading-spinner"></div> Listando paquetes...';
-            
-            fetch(`/_app/adb_manager/api/device/${deviceId}/venv-packages`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        packagesDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
-                    } else {
-                        let html = '<div style="color: white;">';
-                        html += `<div style="margin-bottom: 8px;"><strong>Total:</strong> ${data.total} paquetes</div>`;
-                        html += '<div style="max-height: 200px; overflow-y: auto;">';
-                        data.packages.forEach(pkg => {
-                            html += `<div style="padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                                <span style="color: #E95420;">${pkg.name}</span> <span style="color: #AEA79F;">${pkg.version}</span>
-                            </div>`;
-                        });
-                        html += '</div></div>';
-                        packagesDiv.innerHTML = html;
-                    }
-                })
-                .catch(error => {
-                    packagesDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
-                });
         }
 
         function showUTPyAppsPanel(deviceId) {
