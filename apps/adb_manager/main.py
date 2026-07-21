@@ -605,15 +605,15 @@ if __name__ == '__main__':
     
     @staticmethod
     def open_morph_browser(device_id, url=None):
-        """Abrir morph-browser en el dispositivo con URL opcional"""
+        """Abrir morph-browser en el dispositivo con URL opcional usando lomiri-app-launch"""
         try:
             if url:
-                # Abrir con URL específica
-                result = subprocess.run(['adb', '-s', device_id, 'shell', 'xdg-open', url],
+                # Abrir con URL específica usando lomiri-app-launch
+                result = subprocess.run(['adb', '-s', device_id, 'shell', 'lomiri-app-launch', 'morph-browser', url],
                                       capture_output=True, text=True, timeout=15)
             else:
                 # Abrir morph-browser sin URL específica
-                result = subprocess.run(['adb', '-s', device_id, 'shell', 'morph-browser'],
+                result = subprocess.run(['adb', '-s', device_id, 'shell', 'lomiri-app-launch', 'morph-browser'],
                                       capture_output=True, text=True, timeout=15)
             
             return True, {
