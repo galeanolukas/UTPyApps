@@ -8,111 +8,144 @@
     <link rel="stylesheet" href="/static/css/common.css">
     <script src="/static/js/common.js"></script>
     <style>
+        * {
+            box-sizing: border-box;
+        }
         body {
-            background: linear-gradient(135deg, #2c001e 0%, #5e2750 100%);
+            background: #1a1a2e;
             min-height: 100vh;
             margin: 0;
             padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         .topbar {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(26, 26, 46, 0.95);
+            border-bottom: 1px solid rgba(233, 84, 32, 0.2);
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             z-index: 1000;
+            height: 60px;
         }
         .footer {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(26, 26, 46, 0.95);
+            border-top: 1px solid rgba(233, 84, 32, 0.2);
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
+            height: 50px;
         }
         .main-content {
             padding-top: 80px;
-            padding-bottom: 60px;
+            padding-bottom: 70px;
             min-height: 100vh;
+            max-width: 1400px;
+            margin: 0 auto;
         }
         .small-text {
-            font-size: 10px;
-            color: #AEA79F;
-            opacity: 0.7;
+            font-size: 12px;
+            color: #888;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            margin-bottom: 24px;
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(233, 84, 32, 0.3);
+        }
+        .card-header {
+            background: linear-gradient(135deg, #E95420 0%, #77216F 100%);
+            color: white;
+            padding: 16px 24px;
+            margin: -1px -1px 16px -1px;
+            border-radius: 16px 16px 0 0;
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
         .device-card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 12px;
             margin-bottom: 16px;
-            transition: transform 0.2s, box-shadow 0.2s;
+            padding: 20px;
+            transition: all 0.3s ease;
         }
         .device-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(233, 84, 32, 0.3);
             transform: translateY(-2px);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
         .status-badge {
-            padding: 4px 12px;
+            padding: 6px 16px;
             border-radius: 20px;
-            font-size: 11px;
+            font-size: 13px;
             font-weight: 500;
         }
         .status-online {
-            background: rgba(46, 204, 113, 0.2);
+            background: rgba(46, 204, 113, 0.15);
             color: #2ecc71;
             border: 1px solid rgba(46, 204, 113, 0.3);
         }
         .status-offline {
-            background: rgba(231, 76, 60, 0.2);
+            background: rgba(231, 76, 60, 0.15);
             color: #e74c3c;
             border: 1px solid rgba(231, 76, 60, 0.3);
         }
         .status-unauthorized {
-            background: rgba(241, 196, 15, 0.2);
+            background: rgba(241, 196, 15, 0.15);
             color: #f1c40f;
             border: 1px solid rgba(241, 196, 15, 0.3);
         }
         .terminal-output {
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.4);
             border-radius: 8px;
-            padding: 12px;
+            padding: 16px;
             font-family: 'Courier New', monospace;
-            font-size: 12px;
+            font-size: 13px;
             color: #00ff00;
-            max-height: 200px;
+            max-height: 300px;
             overflow-y: auto;
             margin-top: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
         .btn-action {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             color: white;
-            padding: 8px 16px;
+            padding: 10px 20px;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 14px;
             transition: all 0.2s;
+            font-weight: 500;
         }
         .btn-action:hover {
-            background: rgba(233, 84, 32, 0.3);
+            background: rgba(233, 84, 32, 0.2);
             border-color: #E95420;
         }
         .btn-primary {
             background: linear-gradient(135deg, #E95420 0%, #77216F 100%);
             border: none;
+            color: white;
         }
         .btn-primary:hover {
             background: linear-gradient(135deg, #c94618 0%, #5e1a58 100%);
+            transform: translateY(-1px);
         }
         .loading-spinner {
             display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.2);
             border-radius: 50%;
             border-top-color: #E95420;
             animation: spin 1s linear infinite;
@@ -120,48 +153,75 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .main-content {
+                padding-top: 70px;
+                padding-bottom: 60px;
+            }
+            .card-header {
+                padding: 12px 16px;
+                font-size: 14px;
+            }
+            .device-card {
+                padding: 16px;
+            }
+            .btn-action {
+                padding: 8px 16px;
+                font-size: 13px;
+            }
+        }
+        @media (min-width: 1200px) {
+            .main-content {
+                padding: 80px 40px 70px 40px;
+            }
+            .card {
+                margin-bottom: 32px;
+            }
+            .device-card {
+                padding: 24px;
+            }
+        }
     </style>
 </head>
 <body>
-    <!-- Topbar Transparente -->
+    <!-- Topbar -->
     <div class="topbar">
-        <div class="w3-container w3-padding-8">
-            <div class="w3-row">
-                <div class="w3-col s6">
-                    <span style="color: #E95420; font-size: 14px; font-weight: 500;">{{ app_name }}</span>
-                </div>
-                <div class="w3-col s6 w3-right-align">
-                    <a href="/" class="w3-text-white" style="font-size: 12px; text-decoration: none;">← Dashboard</a>
-                </div>
+        <div class="w3-container" style="height: 100%; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <span style="color: #E95420; font-size: 18px; font-weight: 600;">{{ app_name }}</span>
+            </div>
+            <div>
+                <a href="/" style="color: white; font-size: 14px; text-decoration: none; opacity: 0.8;">← Dashboard</a>
             </div>
         </div>
     </div>
 
     <!-- Main Content -->
     <main class="main-content w3-container">
-        <div class="w3-row-padding" style="margin: 0 -8px;">
-            <div class="w3-col l8 m10 s12" style="padding: 8px;">
+        <div class="w3-row-padding">
+            <div class="w3-col l12 m12 s12">
                 <!-- ADB Status Card -->
-                <div class="w3-card w3-round-large" style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px;">
-                    <div style="background: linear-gradient(135deg, rgba(233, 84, 32, 0.8) 0%, rgba(119, 33, 111, 0.8) 100%); color: white; padding: 10px 16px; margin: -16px -16px 12px -16px; font-size: 14px; font-weight: 500; border-radius: 12px 12px 0 0; display: flex; align-items: center; justify-content: space-between;">
+                <div class="card">
+                    <div class="card-header">
                         <span>Estado ADB</span>
-                        <div style="width: 32px; height: 32px; background: rgba(255, 255, 255, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                            <span style="font-size: 16px;">📱</span>
+                        <div style="width: 40px; height: 40px; background: rgba(255, 255, 255, 0.2); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                            <span style="font-size: 20px;">📱</span>
                         </div>
                     </div>
-                    <div class="w3-padding" style="padding: 16px;">
+                    <div style="padding: 24px;">
                         {% if adb_available %}
-                        <div style="margin-bottom: 12px;">
+                        <div style="margin-bottom: 16px;">
                             <span class="status-badge status-online">ADB Disponible</span>
                         </div>
-                        <p style="color: #AEA79F; font-size: 12px; margin: 8px 0;">{{ adb_info }}</p>
+                        <p style="color: #888; font-size: 14px; margin: 8px 0;">{{ adb_info }}</p>
                         {% else %}
-                        <div style="margin-bottom: 12px;">
+                        <div style="margin-bottom: 16px;">
                             <span class="status-badge status-offline">ADB No Disponible</span>
                         </div>
-                        <p style="color: #AEA79F; font-size: 12px; margin: 8px 0;">{{ adb_info }}</p>
-                        <div style="background: rgba(231, 76, 60, 0.1); border: 1px solid rgba(231, 76, 60, 0.3); border-radius: 8px; padding: 12px; margin-top: 12px;">
-                            <p style="color: #e74c3c; font-size: 11px; margin: 0;">
+                        <p style="color: #888; font-size: 14px; margin: 8px 0;">{{ adb_info }}</p>
+                        <div style="background: rgba(231, 76, 60, 0.1); border: 1px solid rgba(231, 76, 60, 0.3); border-radius: 12px; padding: 16px; margin-top: 16px;">
+                            <p style="color: #e74c3c; font-size: 13px; margin: 0;">
                                 <strong>Instalar ADB:</strong><br>
                                 Ubuntu/Debian: <code style="color: #E95420;">sudo apt install adb</code><br>
                                 Fedora: <code style="color: #E95420;">sudo dnf install android-tools</code>
@@ -169,88 +229,89 @@
                         </div>
                         {% endif %}
                         
-                        <button onclick="refreshDevices()" class="w3-btn w3-round-large w3-block btn-primary" style="color: white; font-size: 13px; padding: 10px; margin-top: 12px;">
+                        <button onclick="refreshDevices()" class="btn-action btn-primary" style="width: 100%; margin-top: 16px;">
                             🔄 Actualizar Dispositivos
                         </button>
                     </div>
                 </div>
 
                 <!-- Devices List -->
-                <div class="w3-card w3-round-large" style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px;">
-                    <div style="background: linear-gradient(135deg, rgba(233, 84, 32, 0.8) 0%, rgba(119, 33, 111, 0.8) 100%); color: white; padding: 10px 16px; margin: -16px -16px 12px -16px; font-size: 14px; font-weight: 500; border-radius: 12px 12px 0 0; display: flex; align-items: center; justify-content: space-between;">
+                <div class="card">
+                    <div class="card-header">
                         <span>Dispositivos Conectados</span>
-                        <span id="device-count" style="background: rgba(255, 255, 255, 0.2); padding: 2px 8px; border-radius: 12px; font-size: 11px;">{{ devices|length }}</span>
+                        <span id="device-count" style="background: rgba(255, 255, 255, 0.2); padding: 4px 12px; border-radius: 12px; font-size: 13px;">{{ devices|length }}</span>
                     </div>
-                    <div class="w3-padding" style="padding: 16px;">
+                    <div style="padding: 24px;">
                         {% if devices %}
                         {% for device in devices %}
-                        <div class="device-card" style="padding: 16px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <div class="device-card">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
                                 <div>
-                                    <h4 style="color: white; margin: 0; font-size: 14px;">{{ device.model }}</h4>
-                                    <p style="color: #AEA79F; font-size: 11px; margin: 4px 0 0 0;">ID: {{ device.id }}</p>
+                                    <h4 style="color: white; margin: 0; font-size: 16px; font-weight: 600;">{{ device.model }}</h4>
+                                    <p style="color: #888; font-size: 13px; margin: 4px 0 0 0;">ID: {{ device.id }}</p>
                                 </div>
                                 <span class="status-badge {% if device.status == 'device' %}status-online{% elif device.status == 'unauthorized' %}status-unauthorized{% else %}status-offline{% endif %}">
                                     {% if device.status == 'device' %}Conectado{% elif device.status == 'unauthorized' %}No Autorizado{% else %}{{ device.status }}{% endif %}
                                 </span>
                             </div>
                             
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                 <button onclick="showDeviceInfo('{{ device.id }}')" class="btn-action">ℹ️ Info</button>
                                 <button onclick="openShell('{{ device.id }}')" class="btn-action">💻 Shell</button>
                                 <button onclick="takeScreenshot('{{ device.id }}')" class="btn-action">📷 Screenshot</button>
                                 <button onclick="rebootDevice('{{ device.id }}', 'system')" class="btn-action">🔄 Reiniciar</button>
                                 <button onclick="checkPythonEnv('{{ device.id }}')" class="btn-action">🐍 Python</button>
-                                <button onclick="showUTPyAppsPanel('{{ device.id }}')" class="btn-action">🚀 UTPyApps</button>
+                                <button onclick="showUTPyAppsPanel('{{ device.id }}')" class="btn-action btn-primary">🚀 UTPyApps</button>
                             </div>
                             
-                            <div id="device-info-{{ device.id }}" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                            <div id="device-info-{{ device.id }}" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
                                 <div class="terminal-output" id="info-output-{{ device.id }}">Cargando información...</div>
                             </div>
                         </div>
                         {% endfor %}
                         {% else %}
-                        <div class="w3-center" style="padding: 32px 0;">
-                            <div style="font-size: 48px; margin-bottom: 12px;">📱</div>
-                            <p style="color: #AEA79F; font-size: 13px; margin: 0;">No hay dispositivos conectados</p>
-                            <p style="color: #AEA79F; font-size: 11px; margin: 8px 0 0 0;">Conecta tu dispositivo Ubuntu Touch via USB</p>
+                        <div class="w3-center" style="padding: 48px 0;">
+                            <div style="font-size: 64px; margin-bottom: 16px;">📱</div>
+                            <p style="color: #888; font-size: 16px; margin: 0;">No hay dispositivos conectados</p>
+                            <p style="color: #888; font-size: 14px; margin: 8px 0 0 0;">Conecta tu dispositivo Ubuntu Touch via USB</p>
                         </div>
                         {% endif %}
                     </div>
                 </div>
 
                 <!-- Shell Terminal -->
-                <div id="shell-panel" class="w3-card w3-round-large" style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px; display: none;">
-                    <div style="background: linear-gradient(135deg, rgba(233, 84, 32, 0.8) 0%, rgba(119, 33, 111, 0.8) 100%); color: white; padding: 10px 16px; margin: -16px -16px 12px -16px; font-size: 14px; font-weight: 500; border-radius: 12px 12px 0 0; display: flex; align-items: center; justify-content: space-between;">
+                <div id="shell-panel" class="card" style="display: none;">
+                    <div class="card-header">
                         <span>Terminal Shell - <span id="shell-device-id"></span></span>
-                        <button onclick="closeShell()" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">×</button>
+                        <button onclick="closeShell()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0;">×</button>
                     </div>
-                    <div class="w3-padding" style="padding: 16px;">
+                    <div style="padding: 24px;">
                         <div class="terminal-output" id="shell-output">
-                            <div style="color: #AEA79F;">Bienvenido al terminal ADB. Escribe un comando y presiona Enter.</div>
+                            <div style="color: #888;">Bienvenido al terminal ADB. Escribe un comando y presiona Enter.</div>
                         </div>
-                        <div style="display: flex; gap: 8px; margin-top: 12px;">
-                            <span style="color: #E95420; font-family: 'Courier New', monospace; font-size: 12px; padding: 8px 0;">$</span>
-                            <input type="text" id="shell-input" placeholder="Escribe un comando..." style="flex: 1; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 8px 12px; color: white; font-size: 12px; font-family: 'Courier New', monospace;">
+                        <div style="display: flex; gap: 12px; margin-top: 16px;">
+                            <span style="color: #E95420; font-family: 'Courier New', monospace; font-size: 14px; padding: 10px 0;">$</span>
+                            <input type="text" id="shell-input" placeholder="Escribe un comando..." style="flex: 1; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 10px 16px; color: white; font-size: 14px; font-family: 'Courier New', monospace;">
                             <button onclick="executeShellCommand()" class="btn-action btn-primary">Ejecutar</button>
                         </div>
                     </div>
                 </div>
 
                 <!-- UTPyApps Panel -->
-                <div id="utpyapps-panel" class="w3-card w3-round-large" style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px; display: none;">
-                    <div style="background: linear-gradient(135deg, rgba(233, 84, 32, 0.8) 0%, rgba(119, 33, 111, 0.8) 100%); color: white; padding: 10px 16px; margin: -16px -16px 12px -16px; font-size: 14px; font-weight: 500; border-radius: 12px 12px 0 0; display: flex; align-items: center; justify-content: space-between;">
+                <div id="utpyapps-panel" class="card" style="display: none;">
+                    <div class="card-header">
                         <span>UTPyApps en Dispositivo - <span id="utpyapps-device-id"></span></span>
-                        <button onclick="closeUTPyAppsPanel()" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">×</button>
+                        <button onclick="closeUTPyAppsPanel()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0;">×</button>
                     </div>
-                    <div class="w3-padding" style="padding: 16px;">
+                    <div style="padding: 24px;">
                         <!-- Python Environment Check -->
-                        <div style="margin-bottom: 16px;">
-                            <h4 style="color: white; font-size: 13px; margin: 0 0 8px 0;">🐍 Entorno Python</h4>
-                            <div id="python-env-status" class="terminal-output" style="min-height: 60px;">
-                                <div style="color: #AEA79F;">Haz clic en "Verificar Python" para comprobar el entorno.</div>
+                        <div style="margin-bottom: 24px;">
+                            <h4 style="color: white; font-size: 15px; margin: 0 0 12px 0; font-weight: 600;">🐍 Entorno Python</h4>
+                            <p style="color: #888; font-size: 14px; margin: 0 0 12px 0;">Verificar instalación de Python y pip en el dispositivo</p>
+                            <div id="python-env-status" class="terminal-output" style="min-height: 80px;">
+                                <div style="color: #888;">Haz clic en "Verificar Python" para comprobar el entorno.</div>
                             </div>
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px;">
                                 <button onclick="checkPythonEnv(currentUTPyAppsDeviceId)" class="btn-action">Verificar Python</button>
                                 <button onclick="installPip(currentUTPyAppsDeviceId)" class="btn-action btn-primary">📦 Instalar pip</button>
                                 <button onclick="installVirtualenv(currentUTPyAppsDeviceId)" class="btn-action">🔧 Instalar virtualenv</button>
@@ -258,54 +319,54 @@
                         </div>
 
                         <!-- Environment Setup (Simplified) -->
-                        <div style="margin-bottom: 16px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
-                            <h4 style="color: white; font-size: 13px; margin: 0 0 8px 0;">� Configurar Entorno de Desarrollo</h4>
-                            <p style="color: #AEA79F; font-size: 11px; margin: 0 0 8px 0;">Configura automáticamente el entorno para instalar y probar apps en el dispositivo</p>
-                            <div id="setup-status" class="terminal-output" style="min-height: 60px; margin-bottom: 8px;">
-                                <div style="color: #AEA79F;">Haz clic en "Configurar Entorno" para iniciar la configuración automática.</div>
+                        <div style="margin-bottom: 24px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                            <h4 style="color: white; font-size: 15px; margin: 0 0 12px 0; font-weight: 600;">🚀 Configurar Entorno de Desarrollo</h4>
+                            <p style="color: #888; font-size: 14px; margin: 0 0 12px 0;">Configura automáticamente el entorno para instalar y probar apps en el dispositivo</p>
+                            <div id="setup-status" class="terminal-output" style="min-height: 80px; margin-bottom: 12px;">
+                                <div style="color: #888;">Haz clic en "Configurar Entorno" para iniciar la configuración automática.</div>
                             </div>
                             <button onclick="setupEnvironment(currentUTPyAppsDeviceId)" class="btn-action btn-primary" style="width: 100%;">⚙️ Configurar Entorno</button>
                         </div>
 
                         <!-- App Copy -->
-                        <div style="margin-bottom: 16px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
-                            <h4 style="color: white; font-size: 13px; margin: 0 0 8px 0;">📦 Copiar Apps al Dispositivo</h4>
-                            <div style="margin-bottom: 8px;">
-                                <select id="app-select" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 8px 12px; color: white; font-size: 12px; width: 100%;">
+                        <div style="margin-bottom: 24px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                            <h4 style="color: white; font-size: 15px; margin: 0 0 12px 0; font-weight: 600;">📦 Copiar Apps al Dispositivo</h4>
+                            <div style="margin-bottom: 12px;">
+                                <select id="app-select" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 12px 16px; color: white; font-size: 14px; width: 100%;">
                                     <option value="">Seleccionar app...</option>
                                 </select>
                             </div>
                             <button onclick="copyAppToDevice(currentUTPyAppsDeviceId)" class="btn-action">Copiar App</button>
-                            <div id="copy-status" class="terminal-output" style="margin-top: 8px; display: none;"></div>
+                            <div id="copy-status" class="terminal-output" style="margin-top: 12px; display: none;"></div>
                         </div>
 
                         <!-- UTPyApps Control -->
-                        <div style="margin-bottom: 16px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
-                            <h4 style="color: white; font-size: 13px; margin: 0 0 8px 0;">🚀 Control UTPyApps</h4>
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <div style="margin-bottom: 24px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                            <h4 style="color: white; font-size: 15px; margin: 0 0 12px 0; font-weight: 600;">🚀 Control UTPyApps</h4>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                 <button onclick="startUTPyApps(currentUTPyAppsDeviceId)" class="btn-action btn-primary">▶ Iniciar</button>
                                 <button onclick="stopUTPyApps(currentUTPyAppsDeviceId)" class="btn-action">⏹ Detener</button>
                                 <button onclick="viewUTPyAppsLogs(currentUTPyAppsDeviceId)" class="btn-action">📋 Logs</button>
                             </div>
-                            <div id="utpyapps-status" class="terminal-output" style="margin-top: 8px; display: none;"></div>
+                            <div id="utpyapps-status" class="terminal-output" style="margin-top: 12px; display: none;"></div>
                         </div>
 
                         <!-- Apps Nativas -->
-                        <div style="margin-bottom: 16px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
-                            <h4 style="color: white; font-size: 13px; margin: 0 0 8px 0;">📱 Apps Nativas</h4>
-                            <p style="color: #AEA79F; font-size: 11px; margin: 0 0 8px 0;">Abrir aplicaciones nativas de Ubuntu Touch</p>
+                        <div style="margin-bottom: 24px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                            <h4 style="color: white; font-size: 15px; margin: 0 0 12px 0; font-weight: 600;">📱 Apps Nativas</h4>
+                            <p style="color: #888; font-size: 14px; margin: 0 0 12px 0;">Abrir aplicaciones nativas de Ubuntu Touch</p>
                             
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
                                 <button onclick="getDeviceIP(currentUTPyAppsDeviceId)" class="btn-action">🌐 Obtener IP</button>
-                                <span id="device-ip-display" style="color: #E95420; font-size: 12px; padding: 8px 0;">-</span>
+                                <span id="device-ip-display" style="color: #E95420; font-size: 14px; padding: 10px 0;">-</span>
                             </div>
                             
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                 <button onclick="openMorphBrowser(currentUTPyAppsDeviceId)" class="btn-action btn-primary">🌐 Morph Browser</button>
                                 <button onclick="openLomiriTerminal(currentUTPyAppsDeviceId)" class="btn-action">💻 Terminal</button>
                             </div>
                             
-                            <div id="native-apps-status" class="terminal-output" style="margin-top: 8px; display: none;"></div>
+                            <div id="native-apps-status" class="terminal-output" style="margin-top: 12px; display: none;"></div>
                         </div>
                     </div>
                 </div>
@@ -313,32 +374,28 @@
         </div>
     </main>
 
-    <!-- Footer Transparente -->
+    <!-- Footer -->
     <div class="footer">
-        <div class="w3-container w3-padding-8">
-            <div class="w3-center">
-                <span class="small-text">© 2026 UTPyApps • Ubuntu Touch • Lomiri</span>
-            </div>
+        <div class="w3-container" style="height: 100%; display: flex; align-items: center; justify-content: center;">
+            <span class="small-text">© 2026 UTPyApps • Ubuntu Touch • Lomiri</span>
         </div>
     </div>
 
     <!-- Modal para Password Sudo -->
     <div id="sudo-modal" class="w3-modal" style="display: none;">
-        <div class="w3-modal-content w3-card-4" style="background: linear-gradient(135deg, #2c001e 0%, #77216f 100%); border-radius: 16px; max-width: 400px; margin-top: 100px;">
-            <div class="w3-container" style="padding: 24px;">
-                <h3 style="color: white; margin: 0 0 16px 0; font-size: 18px;">🔐 Se requiere Password</h3>
-                <p style="color: #AEA79F; font-size: 13px; margin: 0 0 16px 0;">Esta operación requiere privilegios de administrador. Ingresa tu password de bloqueo/pin:</p>
-                <input type="password" id="sudo-password" placeholder="Password" style="width: 100%; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 12px; color: white; font-size: 14px; margin-bottom: 12px;">
-                <div style="margin-bottom: 16px;">
-                    <label style="color: #AEA79F; font-size: 12px; display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" id="save-password" style="cursor: pointer;">
-                        Guardar contraseña para esta sesión
-                    </label>
-                </div>
-                <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                    <button onclick="closeSudoModal()" class="btn-action" style="background: rgba(255, 255, 255, 0.1);">Cancelar</button>
-                    <button onclick="confirmSudoPassword()" class="btn-action btn-primary">Confirmar</button>
-                </div>
+        <div class="w3-modal-content" style="background: #1a1a2e; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; max-width: 450px; margin-top: 100px; padding: 32px;">
+            <h3 style="color: white; margin: 0 0 16px 0; font-size: 20px; font-weight: 600;">🔐 Se requiere Password</h3>
+            <p style="color: #888; font-size: 14px; margin: 0 0 20px 0;">Esta operación requiere privilegios de administrador. Ingresa tu password de bloqueo/pin:</p>
+            <input type="password" id="sudo-password" placeholder="Password" style="width: 100%; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 14px 16px; color: white; font-size: 15px; margin-bottom: 16px;">
+            <div style="margin-bottom: 20px;">
+                <label style="color: #888; font-size: 14px; display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" id="save-password" style="cursor: pointer;">
+                    Guardar contraseña para esta sesión
+                </label>
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button onclick="closeSudoModal()" class="btn-action" style="background: rgba(255, 255, 255, 0.08);">Cancelar</button>
+                <button onclick="confirmSudoPassword()" class="btn-action btn-primary">Confirmar</button>
             </div>
         </div>
     </div>
