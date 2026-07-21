@@ -929,6 +929,101 @@ if __name__ == '__main__':
             return False, f"Error instalando pip en venv: {str(e)}"
     
     @staticmethod
+    def check_environment_status(device_id):
+        """Verificar el estado del entorno de desarrollo en el dispositivo"""
+        try:
+            env_path = '/home/phablet/utpyapps'
+            venv_path = '/home/phablet/utpyapps/venv'
+            
+            results = []
+            
+            # Etapa 1: Verificar directorio principal
+            stage1_cmd = ['adb', '-s', device_id, 'shell', f'test -d {env_path} && echo "EXISTS" || echo "NOT_EXISTS"']
+            stage1_result = subprocess.run(stage1_cmd, capture_output=True, text=True, timeout=10)
+            stage1_exists = 'EXISTS' in stage1_result.stdout
+            results.append({
+                'stage': 1,
+                'description': 'Directorio principal /home/phablet/utpyapps',
+                'status': 'completed' if stage1_exists else 'pending',
+                'exists': stage1_exists
+            })
+            
+            # Etapa 2: Verificar directorios copiados
+            dirs_to_check = ['apps', 'static', 'templates']
+            stage2_complete = True
+            for dir_name in dirs_to_check:
+                check_cmd = ['adb', '-s', device_id, 'shell', f'test -d {env_path}/{dir_name} && echo "EXISTS" || echo "NOT_EXISTS"']
+                check_result = subprocess.run(check_cmd, capture_output=True, text=True, timeout=10)
+                if 'EXISTS' not in check_result.stdout:
+                    stage2_complete = False
+            results.append({
+                'stage': 2,
+                'description': 'Directorios copiados (apps, static, templates)',
+                'status': 'completed' if stage2_complete else 'pending',
+                'exists': stage2_complete
+            })
+            
+            # Etapa 3: Verificar entorno virtual
+            stage3_cmd = ['adb', '-s', device_id, 'shell', f'test -d {venv_path} && echo "EXISTS" || echo "NOT_EXISTS"']
+            stage3_result = subprocess.run(stage3_cmd, capture_output=True, text=True, timeout=10)
+            stage3_exists = 'EXISTS' in stage3_result.stdout
+            results.append({
+                'stage': 3,
+                'description': 'Entorno virtual creado',
+                'status': 'completed' if stage3_exists else 'pending',
+                'exists': stage3_exists
+            })
+            
+            # Etapa 4: Verificar pip instalado
+            stage4_cmd = ['adb', '-s', device_id, 'shell', f'test -f {venv_path}/bin/pip && echo "EXISTS" || echo "NOT_EXISTS"']
+            stage4_result = subprocess.run(stage4_cmd, capture_output=True, text=True, timeout=10)
+            stage4_exists = 'EXISTS' in stage4_result.stdout
+            results.append({
+                'stage': 4,
+                'description': 'Pip instalado en el entorno virtual',
+                'status': 'completed' if stage4_exists else 'pending',
+                'exists': stage4_exists
+            })
+            
+            # Etapa 5: Verificar requirements.txt
+            stage5_cmd = ['adb', '-s', device_id, 'shell', f'test -f {env_path}/requirements.txt && echo "EXISTS" || echo "NOT_EXISTS"']
+            stage5_result = subprocess.run(stage5_cmd, capture_output=True, text=True, timeout=10)
+            stage5_exists = 'EXISTS' in stage5_result.stdout
+            results.append({
+                'stage': 5,
+                'description': 'Requirements.txt generado',
+                'status': 'completed' if stage5_exists else 'pending',
+                'exists': stage5_exists
+            })
+            
+            # Etapa 6: Verificar main.py
+            stage6_cmd = ['adb', '-s', device_id, 'shell', f'test -f {env_path}/main.py && echo "EXISTS" || echo "NOT_EXISTS"']
+            stage6_result = subprocess.run(stage6_cmd, capture_output=True, text=True, timeout=10)
+            stage6_exists = 'EXISTS' in stage6_result.stdout
+            results.append({
+                'stage': 6,
+                'description': 'Main.py con sistema de montado dinámico',
+                'status': 'completed' if stage6_exists else 'pending',
+                'exists': stage6_exists
+            })
+            
+            # Calcular porcentaje de completado
+            completed = sum(1 for r in results if r['status'] == 'completed')
+            total = len(results)
+            percentage = int((completed / total) * 100)
+            
+            return True, {
+                'message': 'Estado del entorno verificado',
+                'completed': completed,
+                'total': total,
+                'percentage': percentage,
+                'is_complete': completed == total,
+                'results': results
+            }
+        except Exception as e:
+            return False, f"Error verificando entorno: {str(e)}"
+    
+    @staticmethod
     def setup_environment(device_id, sudo_password=None, local_apps_dir=None):
         """Configurar entorno de desarrollo automáticamente copiando estructura local
         
@@ -1472,13 +1567,22 @@ def home(request):
     if not devices_success:
         devices = []
     
+    # Verificar estado del entorno si hay dispositivos conectados
+    environment_status = None
+    if devices and len(devices) > 0:
+        first_device_id = devices[0].id
+        env_success, env_result = ADBManager.check_environment_status(first_device_id)
+        if env_success:
+            environment_status = env_result
+    
     html_content = template.render(
         app_name='ADB Manager',
         app_description='Gestor de conexión ADB para Ubuntu Touch',
         app_version='1.0.0',
         adb_available=adb_available,
         adb_info=adb_info,
-        devices=devices
+        devices=devices,
+        environment_status=environment_status
     )
     return Response(html_content)
 
@@ -1772,6 +1876,21 @@ def api_setup_environment(request, device_id):
             return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
     except Exception as e:
         print(f"Error en api_setup_environment: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({'error': f'Error interno: {str(e)}'}, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/device/<device_id>/check-environment')
+def api_check_environment(request, device_id):
+    """API endpoint para verificar el estado del entorno de desarrollo"""
+    try:
+        success, result = ADBManager.check_environment_status(device_id)
+        if success:
+            return Response(result, headers={'Content-Type': 'application/json'})
+        else:
+            return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        print(f"Error en api_check_environment: {str(e)}")
         import traceback
         traceback.print_exc()
         return Response({'error': f'Error interno: {str(e)}'}, status_code=500, headers={'Content-Type': 'application/json'})
