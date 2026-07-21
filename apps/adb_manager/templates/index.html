@@ -750,6 +750,9 @@
                         html += `<div><strong>Venv:</strong> ${data.venv_path}</div>`;
                         html += `<div><strong>Python:</strong> ${data.python_path}</div>`;
                         html += `<div><strong>Pip:</strong> ${data.pip_path}</div>`;
+                        if (data.requirements_count) {
+                            html += `<div><strong>Requirements:</strong> ${data.requirements_count} paquetes instalados</div>`;
+                        }
                         html += '</div>';
                         html += '</div>';
                         statusDiv.innerHTML = html;

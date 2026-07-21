@@ -926,21 +926,25 @@ if __name__ == '__main__':
             return False, f"Error instalando pip en venv: {str(e)}"
     
     @staticmethod
-    def setup_environment(device_id, sudo_password=None):
-        """Configurar entorno de desarrollo automáticamente en 6 etapas (sin sudo)
+    def setup_environment(device_id, sudo_password=None, local_apps_dir=None):
+        """Configurar entorno de desarrollo automáticamente copiando estructura local
         
         Etapas:
         1. Crear directorio principal ~/utpyapps (sin sudo, en home del usuario)
-        2. Crear estructura de directorios (apps, templates, static, etc.)
+        2. Copiar directorios desde sistema local (static, templates, apps)
         3. Crear entorno virtual con python3 -m venv --without-pip (sin sudo)
         4. Instalar pip dentro del venv y luego instalar requirements (sin sudo)
         5. Copiar main.py completo con sistema de montado dinámico
-        6. Crear archivo index.html básico en templates
+        6. Generar requirements.txt dinámico desde app.json de todas las apps
         """
         try:
             results = []
             env_path = '~/utpyapps'
             venv_path = '~/utpyapps/venv'
+            
+            # Si no se especifica local_apps_dir, usar el directorio actual
+            if not local_apps_dir:
+                local_apps_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             
             # Etapa 1: Crear directorio principal (sin sudo, funciona en home del usuario)
             stage1_cmd = ['adb', '-s', device_id, 'shell', f'mkdir -p {env_path}']
@@ -962,27 +966,24 @@ if __name__ == '__main__':
                     'results': results
                 }
             
-            # Etapa 2: Crear estructura de directorios (sin sudo)
-            dirs_to_create = [
-                f'{env_path}/apps',
-                f'{env_path}/templates',
-                f'{env_path}/static',
-                f'{env_path}/static/css',
-                f'{env_path}/static/js',
-                f'{env_path}/static/images'
-            ]
+            # Etapa 2: Copiar directorios desde sistema local
+            dirs_to_copy = ['static', 'templates']
             
-            for dir_path in dirs_to_create:
-                mkdir_cmd = ['adb', '-s', device_id, 'shell', f'mkdir -p {dir_path}']
-                mkdir_result = subprocess.run(mkdir_cmd, capture_output=True, text=True, timeout=15)
-                results.append({
-                    'stage': 2,
-                    'description': f'Crear directorio {dir_path}',
-                    'command': f'mkdir -p {dir_path}',
-                    'success': mkdir_result.returncode == 0,
-                    'output': mkdir_result.stdout,
-                    'error': mkdir_result.stderr
-                })
+            for dir_name in dirs_to_copy:
+                local_dir = os.path.join(local_apps_dir, dir_name)
+                if os.path.exists(local_dir):
+                    # Copiar directorio completo usando adb push
+                    push_cmd = ['adb', '-s', device_id, 'push', local_dir, f'{env_path}/{dir_name}']
+                    push_result = subprocess.run(push_cmd, capture_output=True, text=True, timeout=60)
+                    
+                    results.append({
+                        'stage': 2,
+                        'description': f'Copiar directorio {dir_name} al dispositivo',
+                        'command': f'push {local_dir} a {env_path}/{dir_name}',
+                        'success': push_result.returncode == 0,
+                        'output': push_result.stdout,
+                        'error': push_result.stderr
+                    })
             
             # Etapa 3: Crear entorno virtual con python3 nativo (sin sudo)
             stage3_cmd = ['adb', '-s', device_id, 'shell', f'python3 -m venv --without-pip {venv_path}']
@@ -1041,20 +1042,59 @@ if __name__ == '__main__':
                 'error': install_pip_result.stderr
             })
             
-            # Etapa 6: Instalar requirements básicos (microdot, jinja2)
-            install_reqs_cmd = ['adb', '-s', device_id, 'shell', f'{venv_path}/bin/pip', 'install', 'microdot', 'jinja2']
-            install_reqs_result = subprocess.run(install_reqs_cmd, capture_output=True, text=True, timeout=120)
+            # Etapa 6: Generar requirements.txt dinámico desde app.json de todas las apps
+            local_apps_path = os.path.join(local_apps_dir, 'apps')
+            all_requirements = set()
+            
+            if os.path.exists(local_apps_path):
+                for app_folder in os.listdir(local_apps_path):
+                    app_json_path = os.path.join(local_apps_path, app_folder, 'app.json')
+                    if os.path.exists(app_json_path):
+                        try:
+                            with open(app_json_path) as f:
+                                app_data = json.load(f)
+                                if 'requirements' in app_data:
+                                    all_requirements.update(app_data['requirements'])
+                        except Exception as e:
+                            print(f"Error leyendo {app_json_path}: {e}")
+            
+            # Agregar requirements básicos
+            all_requirements.update(['microdot', 'jinja2'])
+            
+            # Crear requirements.txt temporal
+            temp_reqs = '/tmp/utpyapps_requirements.txt'
+            with open(temp_reqs, 'w') as f:
+                f.write('\n'.join(sorted(all_requirements)))
+            
+            # Copiar requirements.txt al dispositivo
+            push_reqs_result = subprocess.run(['adb', '-s', device_id, 'push', temp_reqs, f'{env_path}/requirements.txt'],
+                                              capture_output=True, text=True, timeout=30)
+            
+            os.remove(temp_reqs)
             
             results.append({
                 'stage': 6,
-                'description': 'Instalar requirements básicos (microdot, jinja2)',
-                'command': f'{venv_path}/bin/pip install microdot jinja2',
+                'description': f'Generar requirements.txt con {len(all_requirements)} paquetes',
+                'command': f'push requirements.txt a {env_path}/requirements.txt',
+                'success': push_reqs_result.returncode == 0,
+                'output': push_reqs_result.stdout,
+                'error': push_reqs_result.stderr
+            })
+            
+            # Etapa 7: Instalar requirements desde requirements.txt
+            install_reqs_cmd = ['adb', '-s', device_id, 'shell', f'{venv_path}/bin/pip', 'install', '-r', f'{env_path}/requirements.txt']
+            install_reqs_result = subprocess.run(install_reqs_cmd, capture_output=True, text=True, timeout=180)
+            
+            results.append({
+                'stage': 7,
+                'description': f'Instalar {len(all_requirements)} paquetes desde requirements.txt',
+                'command': f'{venv_path}/bin/pip install -r {env_path}/requirements.txt',
                 'success': install_reqs_result.returncode == 0,
                 'output': install_reqs_result.stdout,
                 'error': install_reqs_result.stderr
             })
             
-            # Etapa 7: Crear main.py completo con sistema de montado dinámico
+            # Etapa 8: Crear main.py completo con sistema de montado dinámico
             main_py_content = '''#!/usr/bin/env python3
 # UTPyApps - Meta-Lanzador para Ubuntu Touch
 # Este archivo se genera automáticamente
@@ -1301,7 +1341,7 @@ if __name__ == '__main__':
             os.remove(temp_main)
             
             results.append({
-                'stage': 7,
+                'stage': 8,
                 'description': 'Crear main.py con sistema de montado dinámico',
                 'command': f'push main.py a {env_path}/main.py',
                 'success': push_result.returncode == 0,
@@ -1309,90 +1349,13 @@ if __name__ == '__main__':
                 'error': push_result.stderr
             })
             
-            # Etapa 8: Crear index.html básico en templates
-            index_html_content = '''<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UTPyApps - Ubuntu Touch</title>
-    <link rel="stylesheet" href="/static/css/w3.css">
-    <style>
-        body {
-            background: #1a1a2e;
-            color: white;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .app-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 16px;
-        }
-        .app-name {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-        .app-description {
-            color: #888;
-            font-size: 14px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🚀 UTPyApps</h1>
-        <p>Meta-lanzador para Ubuntu Touch</p>
-        
-        {% if apps %}
-        <h2>Apps Instaladas</h2>
-        {% for app in apps %}
-        <div class="app-card">
-            <div class="app-name">{{ app.name }}</div>
-            <div class="app-description">{{ app.description }}</div>
-        </div>
-        {% endfor %}
-        {% else %}
-        <p>No hay apps instaladas aún.</p>
-        {% endif %}
-    </div>
-</body>
-</html>
-'''
-            
-            # Escribir index.html en el dispositivo
-            temp_index = '/tmp/utpyapps_index.html'
-            with open(temp_index, 'w') as f:
-                f.write(index_html_content)
-            
-            push_index_result = subprocess.run(['adb', '-s', device_id, 'push', temp_index, f'{env_path}/templates/index.html'],
-                                              capture_output=True, text=True, timeout=30)
-            
-            os.remove(temp_index)
-            
-            results.append({
-                'stage': 8,
-                'description': 'Crear index.html básico en templates',
-                'command': f'push index.html a {env_path}/templates/index.html',
-                'success': push_index_result.returncode == 0,
-                'output': push_index_result.stdout,
-                'error': push_index_result.stderr
-            })
-            
             return True, {
-                'message': 'Entorno configurado exitosamente con estructura completa',
+                'message': 'Entorno configurado exitosamente con estructura copiada desde local',
                 'env_path': env_path,
                 'venv_path': venv_path,
                 'python_path': f'{venv_path}/bin/python3',
                 'pip_path': f'{venv_path}/bin/pip',
+                'requirements_count': len(all_requirements),
                 'results': results
             }
         except Exception as e:
@@ -1797,8 +1760,9 @@ def api_setup_environment(request, device_id):
     try:
         data = request.json
         sudo_password = data.get('sudo_password')
+        local_apps_dir = data.get('local_apps_dir')
         
-        success, result = ADBManager.setup_environment(device_id, sudo_password)
+        success, result = ADBManager.setup_environment(device_id, sudo_password, local_apps_dir)
         if success:
             return Response(result, headers={'Content-Type': 'application/json'})
         else:
