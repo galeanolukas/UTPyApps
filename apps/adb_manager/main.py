@@ -485,9 +485,32 @@ if __name__ == '__main__':
     
     @staticmethod
     def install_pip(device_id, sudo_password=None):
-        """Instalar pip en el dispositivo usando ensurepip"""
+        """Instalar pip en el dispositivo usando apt-get, ensurepip, get-pip.py o --break-system-packages"""
         try:
-            # Intentar instalar pip usando ensurepip (método recomendado)
+            # Método 1: Usar apt-get para instalar python3-pip (recomendado para Ubuntu Touch)
+            print("Intentando instalar pip usando apt-get...")
+            apt_cmd = ['adb', '-s', device_id, 'shell', 'apt-get', 'update']
+            if sudo_password:
+                apt_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S apt-get update']
+            
+            update_result = subprocess.run(apt_cmd, capture_output=True, text=True, timeout=120)
+            
+            if update_result.returncode == 0:
+                install_cmd = ['adb', '-s', device_id, 'shell', 'apt-get', 'install', '-y', 'python3-pip']
+                if sudo_password:
+                    install_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S apt-get install -y python3-pip']
+                
+                install_result = subprocess.run(install_cmd, capture_output=True, text=True, timeout=180)
+                
+                if install_result.returncode == 0:
+                    return True, {
+                        'message': 'pip instalado exitosamente usando apt-get',
+                        'output': install_result.stdout,
+                        'method': 'apt-get'
+                    }
+            
+            # Método 2: Intentar instalar pip usando ensurepip
+            print("apt-get falló, intentando con ensurepip...")
             cmd = ['adb', '-s', device_id, 'shell', 'python3', '-m', 'ensurepip', '--upgrade']
             if sudo_password:
                 cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S python3 -m ensurepip --upgrade']
@@ -501,32 +524,59 @@ if __name__ == '__main__':
                     'method': 'ensurepip'
                 }
             
-            # Fallback: descargar get-pip.py y ejecutarlo
-            print("ensurepip falló, intentando con get-pip.py...")
-            download_result = subprocess.run(['adb', '-s', device_id, 'shell', 'curl', 'https://bootstrap.pypa.io/get-pip.py', '-o', '/tmp/get-pip.py'],
-                                           capture_output=True, text=True, timeout=30)
-            
-            if download_result.returncode != 0:
-                return False, "Error descargando get-pip.py. Asegúrate de que curl esté instalado en el dispositivo."
-            
-            install_cmd = ['adb', '-s', device_id, 'shell', 'python3', '/tmp/get-pip.py']
+            # Método 3: Descargar get-pip.py usando wget y ejecutarlo
+            print("ensurepip falló, intentando con get-pip.py usando wget...")
+            download_cmd = ['adb', '-s', device_id, 'shell', 'wget', 'https://bootstrap.pypa.io/get-pip.py', '-O', '/tmp/get-pip.py']
             if sudo_password:
-                install_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S python3 /tmp/get-pip.py']
+                download_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py']
             
-            install_result = subprocess.run(install_cmd, capture_output=True, text=True, timeout=60)
+            download_result = subprocess.run(download_cmd, capture_output=True, text=True, timeout=30)
             
-            # Limpiar archivo temporal
-            subprocess.run(['adb', '-s', device_id, 'shell', 'rm', '/tmp/get-pip.py'],
-                          capture_output=True, text=True, timeout=10)
+            if download_result.returncode == 0:
+                install_cmd = ['adb', '-s', device_id, 'shell', 'python3', '/tmp/get-pip.py']
+                if sudo_password:
+                    install_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S python3 /tmp/get-pip.py']
+                
+                install_result = subprocess.run(install_cmd, capture_output=True, text=True, timeout=60)
+                
+                # Limpiar archivo temporal
+                subprocess.run(['adb', '-s', device_id, 'shell', 'rm', '/tmp/get-pip.py'],
+                              capture_output=True, text=True, timeout=10)
+                
+                if install_result.returncode == 0:
+                    return True, {
+                        'message': 'pip instalado exitosamente usando get-pip.py',
+                        'output': install_result.stdout,
+                        'method': 'get-pip.py'
+                    }
             
-            if install_result.returncode == 0:
-                return True, {
-                    'message': 'pip instalado exitosamente usando get-pip.py',
-                    'output': install_result.stdout,
-                    'method': 'get-pip.py'
-                }
-            else:
-                return False, f"Error instalando pip: {install_result.stderr}"
+            # Método 4: Usar get-pip.py con --break-system-packages (último recurso)
+            print("get-pip.py falló, intentando con --break-system-packages...")
+            download_cmd = ['adb', '-s', device_id, 'shell', 'wget', 'https://bootstrap.pypa.io/get-pip.py', '-O', '/tmp/get-pip.py']
+            if sudo_password:
+                download_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py']
+            
+            download_result = subprocess.run(download_cmd, capture_output=True, text=True, timeout=30)
+            
+            if download_result.returncode == 0:
+                install_cmd = ['adb', '-s', device_id, 'shell', 'python3', '/tmp/get-pip.py', '--break-system-packages']
+                if sudo_password:
+                    install_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S python3 /tmp/get-pip.py --break-system-packages']
+                
+                install_result = subprocess.run(install_cmd, capture_output=True, text=True, timeout=60)
+                
+                # Limpiar archivo temporal
+                subprocess.run(['adb', '-s', device_id, 'shell', 'rm', '/tmp/get-pip.py'],
+                              capture_output=True, text=True, timeout=10)
+                
+                if install_result.returncode == 0:
+                    return True, {
+                        'message': 'pip instalado exitosamente usando get-pip.py con --break-system-packages',
+                        'output': install_result.stdout,
+                        'method': 'get-pip.py-break-system'
+                    }
+            
+            return False, "No se pudo instalar pip. Métodos intentados: apt-get, ensurepip, get-pip.py, get-pip.py --break-system-packages. Recomendación: Usa python3 -m venv para crear un entorno virtual directamente."
                 
         except Exception as e:
             return False, f"Error instalando pip: {str(e)}"
@@ -562,14 +612,47 @@ if __name__ == '__main__':
     
     @staticmethod
     def create_virtualenv(device_id, env_path='~/utpyapps/venv', sudo_password=None):
-        """Crear entorno virtual en el dispositivo"""
+        """Crear entorno virtual en el dispositivo usando python3 -m venv --without-pip (Ubuntu Touch)"""
         try:
-            # Verificar si virtualenv está instalado
+            # Método 1: Usar python3 -m venv --without-pip (recomendado para Ubuntu Touch con FS de sólo lectura)
+            print("Intentando crear entorno virtual usando python3 -m venv --without-pip...")
+            cmd = ['adb', '-s', device_id, 'shell', 'python3', '-m', 'venv', '--without-pip', env_path]
+            if sudo_password:
+                cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S python3 -m venv --without-pip {env_path}']
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            
+            if result.returncode == 0:
+                return True, {
+                    'message': f'Entorno virtual creado en {env_path} usando python3 -m venv --without-pip',
+                    'output': result.stdout,
+                    'env_path': env_path,
+                    'method': 'venv-without-pip'
+                }
+            
+            # Método 2: Usar python3 -m venv normal (si python3-venv está instalado)
+            print("python3 -m venv --without-pip falló, intentando con python3 -m venv normal...")
+            cmd = ['adb', '-s', device_id, 'shell', 'python3', '-m', 'venv', env_path]
+            if sudo_password:
+                cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S python3 -m venv {env_path}']
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            
+            if result.returncode == 0:
+                return True, {
+                    'message': f'Entorno virtual creado en {env_path} usando python3 -m venv',
+                    'output': result.stdout,
+                    'env_path': env_path,
+                    'method': 'venv'
+                }
+            
+            # Método 3: Usar virtualenv (requiere pip)
+            print("python3 -m venv falló, intentando con virtualenv...")
             venv_check = subprocess.run(['adb', '-s', device_id, 'shell', 'which', 'virtualenv'],
                                       capture_output=True, text=True, timeout=10)
             
             if venv_check.returncode != 0:
-                return False, "virtualenv no está instalado. Instala virtualenv primero."
+                return False, "No se pudo crear el entorno virtual. Ubuntu Touch requiere python3-venv pero el sistema de archivos es de sólo lectura. Solución: El entorno virtual debe crearse en el home del usuario y pip debe instalarse manualmente dentro del venv."
             
             # Crear entorno virtual
             cmd = ['adb', '-s', device_id, 'shell', 'virtualenv', env_path]
@@ -580,9 +663,10 @@ if __name__ == '__main__':
             
             if result.returncode == 0:
                 return True, {
-                    'message': f'Entorno virtual creado en {env_path}',
+                    'message': f'Entorno virtual creado en {env_path} usando virtualenv',
                     'output': result.stdout,
-                    'env_path': env_path
+                    'env_path': env_path,
+                    'method': 'virtualenv'
                 }
             else:
                 return False, f"Error creando entorno virtual: {result.stderr}"
@@ -611,6 +695,42 @@ if __name__ == '__main__':
                 
         except Exception as e:
             return False, f"Error instalando paquete: {str(e)}"
+    
+    @staticmethod
+    def install_pip_in_venv(device_id, env_path='~/utpyapps/venv', sudo_password=None):
+        """Instalar pip dentro de un entorno virtual existente (para Ubuntu Touch)"""
+        try:
+            # Descargar get-pip.py usando wget
+            download_cmd = ['adb', '-s', device_id, 'shell', 'wget', 'https://bootstrap.pypa.io/get-pip.py', '-O', '/tmp/get-pip.py']
+            if sudo_password:
+                download_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py']
+            
+            download_result = subprocess.run(download_cmd, capture_output=True, text=True, timeout=30)
+            
+            if download_result.returncode != 0:
+                return False, "Error descargando get-pip.py"
+            
+            # Instalar pip dentro del venv usando get-pip.py
+            install_cmd = ['adb', '-s', device_id, 'shell', f'{env_path}/bin/python3', '/tmp/get-pip.py']
+            if sudo_password:
+                install_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S {env_path}/bin/python3 /tmp/get-pip.py']
+            
+            install_result = subprocess.run(install_cmd, capture_output=True, text=True, timeout=60)
+            
+            # Limpiar archivo temporal
+            subprocess.run(['adb', '-s', device_id, 'shell', 'rm', '/tmp/get-pip.py'],
+                          capture_output=True, text=True, timeout=10)
+            
+            if install_result.returncode == 0:
+                return True, {
+                    'message': f'pip instalado exitosamente en el entorno virtual {env_path}',
+                    'output': install_result.stdout
+                }
+            else:
+                return False, f"Error instalando pip en el venv: {install_result.stderr}"
+                
+        except Exception as e:
+            return False, f"Error instalando pip en venv: {str(e)}"
 
 @app.route('/')
 def home(request):
@@ -892,6 +1012,19 @@ def api_install_package(request, device_id):
         return Response({'error': 'package requerido'}, status_code=400, headers={'Content-Type': 'application/json'})
     
     success, result = ADBManager.install_package_in_venv(device_id, package, env_path, sudo_password)
+    if success:
+        return Response(result, headers={'Content-Type': 'application/json'})
+    else:
+        return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/device/<device_id>/install-pip-in-venv', methods=['POST'])
+def api_install_pip_in_venv(request, device_id):
+    """API endpoint para instalar pip dentro de un entorno virtual"""
+    data = request.json
+    env_path = data.get('env_path', '~/utpyapps/venv')
+    sudo_password = data.get('sudo_password')
+    
+    success, result = ADBManager.install_pip_in_venv(device_id, env_path, sudo_password)
     if success:
         return Response(result, headers={'Content-Type': 'application/json'})
     else:

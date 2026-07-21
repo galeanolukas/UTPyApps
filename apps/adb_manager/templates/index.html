@@ -270,6 +270,7 @@
                             <p style="color: #AEA79F; font-size: 11px; margin: 0 0 8px 0;">Crear y gestionar entorno virtual Python</p>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
                                 <button onclick="createVirtualenv(currentUTPyAppsDeviceId)" class="btn-action btn-primary">Crear venv</button>
+                                <button onclick="installPipInVenv(currentUTPyAppsDeviceId)" class="btn-action">📦 Instalar pip en venv</button>
                             </div>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                 <input type="text" id="package-input" placeholder="Paquete (ej: microdot)" style="flex: 1; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 8px 12px; color: white; font-size: 12px;">
@@ -658,6 +659,31 @@
                     } else {
                         statusDiv.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}</div>`;
                         packageInput.value = '';
+                    }
+                })
+                .catch(error => {
+                    statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+                });
+            });
+        }
+
+        function installPipInVenv(deviceId) {
+            showSudoModal((password) => {
+                const statusDiv = document.getElementById('venv-status');
+                statusDiv.style.display = 'block';
+                statusDiv.innerHTML = '<div class="loading-spinner"></div> Instalando pip en el entorno virtual...';
+                
+                fetch(`/_app/adb_manager/api/device/${deviceId}/install-pip-in-venv`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ env_path: '~/utpyapps/venv', sudo_password: password })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                    } else {
+                        statusDiv.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}</div>`;
                     }
                 })
                 .catch(error => {
