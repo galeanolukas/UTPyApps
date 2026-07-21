@@ -930,8 +930,8 @@ if __name__ == '__main__':
         """Configurar entorno de desarrollo automáticamente copiando estructura local
         
         Etapas:
-        1. Crear directorio principal ~/utpyapps (sin sudo, en home del usuario)
-        2. Copiar directorios desde sistema local (static, templates, apps)
+        1. Crear directorio principal /home/phablet/utpyapps (sin sudo, en home del usuario)
+        2. Copiar directorios desde sistema local (apps, static, templates)
         3. Crear entorno virtual con python3 -m venv --without-pip (sin sudo)
         4. Instalar pip dentro del venv y luego instalar requirements (sin sudo)
         5. Copiar main.py completo con sistema de montado dinámico
@@ -967,7 +967,7 @@ if __name__ == '__main__':
                 }
             
             # Etapa 2: Copiar directorios desde sistema local
-            dirs_to_copy = ['static', 'templates']
+            dirs_to_copy = ['apps', 'static', 'templates']
             
             for dir_name in dirs_to_copy:
                 local_dir = os.path.join(local_apps_dir, dir_name)
