@@ -339,7 +339,13 @@
             <div class="w3-container" style="padding: 24px;">
                 <h3 style="color: white; margin: 0 0 16px 0; font-size: 18px;">🔐 Se requiere Password</h3>
                 <p style="color: #AEA79F; font-size: 13px; margin: 0 0 16px 0;">Esta operación requiere privilegios de administrador. Ingresa tu password de bloqueo/pin:</p>
-                <input type="password" id="sudo-password" placeholder="Password" style="width: 100%; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 12px; color: white; font-size: 14px; margin-bottom: 16px;">
+                <input type="password" id="sudo-password" placeholder="Password" style="width: 100%; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 12px; color: white; font-size: 14px; margin-bottom: 12px;">
+                <div style="margin-bottom: 16px;">
+                    <label style="color: #AEA79F; font-size: 12px; display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="save-password" style="cursor: pointer;">
+                        Guardar contraseña para esta sesión
+                    </label>
+                </div>
                 <div style="display: flex; gap: 8px; justify-content: flex-end;">
                     <button onclick="closeSudoModal()" class="btn-action" style="background: rgba(255, 255, 255, 0.1);">Cancelar</button>
                     <button onclick="confirmSudoPassword()" class="btn-action btn-primary">Confirmar</button>
@@ -358,24 +364,46 @@
         }
 
         function showSudoModal(callback) {
+            // Verificar si hay contraseña guardada en localStorage
+            const savedPassword = localStorage.getItem('sudo_password');
+            if (savedPassword) {
+                // Usar contraseña guardada directamente
+                callback(savedPassword);
+                return;
+            }
+            
             pendingSudoCallback = callback;
             document.getElementById('sudo-modal').style.display = 'block';
             document.getElementById('sudo-password').value = '';
+            document.getElementById('save-password').checked = false;
             document.getElementById('sudo-password').focus();
         }
 
         function closeSudoModal() {
             document.getElementById('sudo-modal').style.display = 'none';
             document.getElementById('sudo-password').value = '';
+            document.getElementById('save-password').checked = false;
             pendingSudoCallback = null;
         }
 
         function confirmSudoPassword() {
             const password = document.getElementById('sudo-password').value;
+            const savePassword = document.getElementById('save-password').checked;
+            
+            // Guardar contraseña en localStorage si el checkbox está marcado
+            if (savePassword && password) {
+                localStorage.setItem('sudo_password', password);
+            }
+            
             if (pendingSudoCallback) {
                 pendingSudoCallback(password);
             }
             closeSudoModal();
+        }
+
+        function clearSavedPassword() {
+            localStorage.removeItem('sudo_password');
+            alert('Contraseña guardada eliminada');
         }
 
         // Enter key to confirm password
@@ -678,25 +706,26 @@
         }
 
         function createUTPyAppsEnvironment(deviceId) {
-            if (!confirm('¿Crear entorno UTPyApps en el dispositivo? Esto creará directorios en ~/utpyapps')) return;
-            
-            const output = document.getElementById('python-env-status');
-            output.innerHTML = '<div class="loading-spinner"></div> Creando entorno...';
-            
-            fetch(`/_app/adb_manager/api/device/${deviceId}/create-environment`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    output.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
-                } else {
-                    output.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}</div>`;
-                }
-            })
-            .catch(error => {
-                output.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+            showSudoModal((password) => {
+                const output = document.getElementById('python-env-status');
+                output.innerHTML = '<div class="loading-spinner"></div> Creando entorno...';
+                
+                fetch(`/_app/adb_manager/api/device/${deviceId}/create-environment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sudo_password: password })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        output.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                    } else {
+                        output.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}</div>`;
+                    }
+                })
+                .catch(error => {
+                    output.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+                });
             });
         }
 
@@ -709,27 +738,27 @@
                 return;
             }
             
-            if (!confirm(`¿Copiar app "${appName}" al dispositivo?`)) return;
-            
-            const statusDiv = document.getElementById('copy-status');
-            statusDiv.style.display = 'block';
-            statusDiv.innerHTML = '<div class="loading-spinner"></div> Copiando archivos...';
-            
-            fetch(`/_app/adb_manager/api/device/${deviceId}/copy-app`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ app_name: appName })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
-                } else {
-                    statusDiv.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}<br>Archivos copiados: ${data.total_files}</div>`;
-                }
-            })
-            .catch(error => {
-                statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+            showSudoModal((password) => {
+                const statusDiv = document.getElementById('copy-status');
+                statusDiv.style.display = 'block';
+                statusDiv.innerHTML = '<div class="loading-spinner"></div> Copiando archivos...';
+                
+                fetch(`/_app/adb_manager/api/device/${deviceId}/copy-app`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ app_name: appName, sudo_password: password })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                    } else {
+                        statusDiv.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}<br>Archivos copiados: ${data.total_files}</div>`;
+                    }
+                })
+                .catch(error => {
+                    statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+                });
             });
         }
 

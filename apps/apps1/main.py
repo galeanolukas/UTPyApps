@@ -1,6 +1,6 @@
-# test_app - App para UTPyApps
-# Name: test_app
-# Description: pruebas
+# apps1 - App para UTPyApps
+# Name: apps1
+# Description: hola
 # Author: Usuario
 # Version: 1.0
 
@@ -21,8 +21,8 @@ def home(request):
     """Página principal de la app"""
     template = app_env.get_template('index.html')
     html_content = template.render(
-        app_name='test_app',
-        app_description='pruebas'
+        app_name='apps1',
+        app_description='hola'
     )
     return Response(html_content)
 
@@ -31,5 +31,5 @@ def home(request):
 # def mi_endpoint(request):
 #     return Response({
 #         'message': 'Hola desde mi endpoint!',
-#         'app': 'test_app'
+#         'app': 'apps1'
 #     }, headers={'Content-Type': 'application/json'})

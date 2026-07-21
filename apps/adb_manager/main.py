@@ -195,7 +195,7 @@ class ADBManager:
             return False, f"Error verificando entorno Python: {str(e)}"
     
     @staticmethod
-    def create_utpyapps_environment(device_id):
+    def create_utpyapps_environment(device_id, sudo_password=None):
         """Crear entorno UTPyApps en el dispositivo Ubuntu Touch"""
         try:
             # Crear directorio base en home del usuario
@@ -213,8 +213,11 @@ class ADBManager:
             
             results = []
             for cmd in commands:
-                result = subprocess.run(['adb', '-s', device_id, 'shell', cmd],
-                                      capture_output=True, text=True, timeout=15)
+                shell_cmd = ['adb', '-s', device_id, 'shell', cmd]
+                if sudo_password:
+                    shell_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S {cmd}']
+                
+                result = subprocess.run(shell_cmd, capture_output=True, text=True, timeout=15)
                 results.append({
                     'command': cmd,
                     'success': result.returncode == 0,
@@ -282,8 +285,11 @@ if __name__ == '__main__':
             os.remove(temp_main)
             
             # Dar permisos de ejecución
-            chmod_result = subprocess.run(['adb', '-s', device_id, 'shell', f'chmod +x {base_dir}/main.py'],
-                                        capture_output=True, text=True, timeout=10)
+            chmod_cmd = ['adb', '-s', device_id, 'shell', f'chmod +x {base_dir}/main.py']
+            if sudo_password:
+                chmod_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S chmod +x {base_dir}/main.py']
+            
+            chmod_result = subprocess.run(chmod_cmd, capture_output=True, text=True, timeout=10)
             
             return True, {
                 'message': 'Entorno UTPyApps creado exitosamente',
@@ -296,7 +302,7 @@ if __name__ == '__main__':
             return False, f"Error creando entorno: {str(e)}"
     
     @staticmethod
-    def copy_app_to_device(device_id, app_name, local_apps_dir):
+    def copy_app_to_device(device_id, app_name, local_apps_dir, sudo_password=None):
         """Copiar una app desde el sistema local al dispositivo"""
         try:
             local_app_path = os.path.join(local_apps_dir, app_name)
@@ -307,8 +313,11 @@ if __name__ == '__main__':
             remote_app_path = f'~/utpyapps/apps/{app_name}'
             
             # Crear directorio remoto
-            mkdir_result = subprocess.run(['adb', '-s', device_id, 'shell', f'mkdir -p {remote_app_path}'],
-                                        capture_output=True, text=True, timeout=15)
+            mkdir_cmd = ['adb', '-s', device_id, 'shell', f'mkdir -p {remote_app_path}']
+            if sudo_password:
+                mkdir_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S mkdir -p {remote_app_path}']
+            
+            mkdir_result = subprocess.run(mkdir_cmd, capture_output=True, text=True, timeout=15)
             
             if mkdir_result.returncode != 0:
                 return False, f"Error creando directorio remoto: {mkdir_result.stderr}"
@@ -326,8 +335,11 @@ if __name__ == '__main__':
                     
                     # Crear directorios remotos si es necesario
                     remote_dir = os.path.dirname(remote_file)
-                    subprocess.run(['adb', '-s', device_id, 'shell', f'mkdir -p {remote_dir}'],
-                                 capture_output=True, text=True, timeout=10)
+                    mkdir_dir_cmd = ['adb', '-s', device_id, 'shell', f'mkdir -p {remote_dir}']
+                    if sudo_password:
+                        mkdir_dir_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S mkdir -p {remote_dir}']
+                    
+                    subprocess.run(mkdir_dir_cmd, capture_output=True, text=True, timeout=10)
                     
                     # Copiar archivo
                     push_result = subprocess.run(['adb', '-s', device_id, 'push', local_file, remote_file],
@@ -721,7 +733,10 @@ def api_check_python(request, device_id):
 @app.route('/api/device/<device_id>/create-environment', methods=['POST'])
 def api_create_environment(request, device_id):
     """API endpoint para crear entorno UTPyApps en dispositivo"""
-    success, result = ADBManager.create_utpyapps_environment(device_id)
+    data = request.json
+    sudo_password = data.get('sudo_password')
+    
+    success, result = ADBManager.create_utpyapps_environment(device_id, sudo_password)
     if success:
         return Response(result, headers={'Content-Type': 'application/json'})
     else:
@@ -732,6 +747,7 @@ def api_copy_app(request, device_id):
     """API endpoint para copiar app al dispositivo"""
     data = request.json
     app_name = data.get('app_name')
+    sudo_password = data.get('sudo_password')
     
     if not app_name:
         return Response({'error': 'app_name requerido'}, status_code=400, headers={'Content-Type': 'application/json'})
@@ -739,7 +755,7 @@ def api_copy_app(request, device_id):
     # Obtener directorio local de apps
     local_apps_dir = os.path.join(os.path.dirname(__file__), '..', '..')
     
-    success, result = ADBManager.copy_app_to_device(device_id, app_name, local_apps_dir)
+    success, result = ADBManager.copy_app_to_device(device_id, app_name, local_apps_dir, sudo_password)
     if success:
         return Response(result, headers={'Content-Type': 'application/json'})
     else:
