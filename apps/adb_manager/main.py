@@ -608,21 +608,19 @@ if __name__ == '__main__':
         """Abrir morph-browser en el dispositivo con URL opcional"""
         try:
             if url:
-                # Usar lomiri-url-dispatcher con variables de entorno correctas
-                # Ejecutar como usuario phablet con acceso al session bus
-                cmd = f"su - phablet -c 'lomiri-url-dispatcher {url}'"
-                result = subprocess.run(['adb', '-s', device_id, 'shell', cmd],
+                # Usar lomiri-url-dispatcher directamente (maneja el entorno internamente)
+                result = subprocess.run(['adb', '-s', device_id, 'shell', 'lomiri-url-dispatcher', url],
                                       capture_output=True, text=True, timeout=15)
                 
-                # Si falla, intentar método alternativo con content-hub
+                # Si falla, intentar con lomiri-app-launch --desktop-file-hint
                 if result.returncode != 0:
-                    cmd = f"su - phablet -c 'xdg-open {url}'"
-                    result = subprocess.run(['adb', '-s', device_id, 'shell', cmd],
+                    result = subprocess.run(['adb', '-s', device_id, 'shell', 
+                                          'lomiri-app-launch', '--desktop-file-hint=/usr/share/applications/morph-browser.desktop', url],
                                           capture_output=True, text=True, timeout=15)
             else:
-                # Abrir morph-browser sin URL usando lomiri-app-launch con usuario phablet
-                cmd = "su - phablet -c 'lomiri-app-launch morph-browser'"
-                result = subprocess.run(['adb', '-s', device_id, 'shell', cmd],
+                # Abrir morph-browser usando lomiri-app-launch
+                result = subprocess.run(['adb', '-s', device_id, 'shell', 
+                                      'lomiri-app-launch', '--desktop-file-hint=/usr/share/applications/morph-browser.desktop'],
                                       capture_output=True, text=True, timeout=15)
             
             return True, {
@@ -639,14 +637,14 @@ if __name__ == '__main__':
         """Abrir lomiri-terminal-app en el dispositivo con comando opcional"""
         try:
             if command:
-                # Abrir terminal con comando específico como usuario phablet
-                cmd = f"su - phablet -c 'lomiri-terminal-app {command}'"
-                result = subprocess.run(['adb', '-s', device_id, 'shell', cmd],
+                # Abrir terminal con comando específico usando lomiri-app-launch
+                result = subprocess.run(['adb', '-s', device_id, 'shell', 
+                                      'lomiri-app-launch', '--desktop-file-hint=/usr/share/applications/lomiri-terminal-app.desktop', command],
                                       capture_output=True, text=True, timeout=15)
             else:
-                # Abrir terminal sin comando específico como usuario phablet
-                cmd = "su - phablet -c 'lomiri-terminal-app'"
-                result = subprocess.run(['adb', '-s', device_id, 'shell', cmd],
+                # Abrir terminal sin comando específico usando lomiri-app-launch
+                result = subprocess.run(['adb', '-s', device_id, 'shell', 
+                                      'lomiri-app-launch', '--desktop-file-hint=/usr/share/applications/lomiri-terminal-app.desktop'],
                                       capture_output=True, text=True, timeout=15)
             
             return True, {
