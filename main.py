@@ -298,8 +298,10 @@ def cargar_apps():
             if os.path.exists(manifest_path):
                 with open(manifest_path) as f:
                     app_info = json.load(f)
-                    app_info['folder'] = app_folder
-                    apps.append(app_info)
+                    # Ocultar apps marcadas como hidden
+                    if not app_info.get('hidden', False):
+                        app_info['folder'] = app_folder
+                        apps.append(app_info)
     return apps
 
 def cargar_app_manifest(nombre):

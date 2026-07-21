@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }} - UTPyApps</title>
+    <link rel="stylesheet" href="/static/css/w3.css">
+    <link rel="stylesheet" href="/static/css/common.css">
+    <script src="/static/js/common.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #2c001e 0%, #5e2750 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+        .topbar {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+        .footer {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+        }
+        .main-content {
+            padding-top: 80px;
+            padding-bottom: 60px;
+            min-height: 100vh;
+        }
+        .small-text {
+            font-size: 10px;
+            color: #AEA79F;
+            opacity: 0.7;
+        }
+        .device-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .device-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .status-online {
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+            border: 1px solid rgba(46, 204, 113, 0.3);
+        }
+        .status-offline {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+        .status-unauthorized {
+            background: rgba(241, 196, 15, 0.2);
+            color: #f1c40f;
+            border: 1px solid rgba(241, 196, 15, 0.3);
+        }
+        .terminal-output {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #00ff00;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 12px;
+        }
+        .btn-action {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        .btn-action:hover {
+            background: rgba(233, 84, 32, 0.3);
+            border-color: #E95420;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #E95420 0%, #77216F 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #c94618 0%, #5e1a58 100%);
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #E95420;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Topbar Transparente -->
+    <div class="topbar">
+        <div class="w3-container w3-padding-8">
+            <div class="w3-row">
+                <div class="w3-col s6">
+                    <span style="color: #E95420; font-size: 14px; font-weight: 500;">{{ app_name }}</span>
+                </div>
+                <div class="w3-col s6 w3-right-align">
+                    <a href="/" class="w3-text-white" style="font-size: 12px; text-decoration: none;">← Dashboard</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content w3-container">
+        <div class="w3-row-padding" style="margin: 0 -8px;">
+            <div class="w3-col l8 m10 s12" style="padding: 8px;">
+                <!-- ADB Status Card -->
+                <div class="w3-card w3-round-large" style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px;">
+                    <div style="background: linear-gradient(135deg, rgba(233, 84, 32, 0.8) 0%, rgba(119, 33, 111, 0.8) 100%); color: white; padding: 10px 16px; margin: -16px -16px 12px -16px; font-size: 14px; font-weight: 500; border-radius: 12px 12px 0 0; display: flex; align-items: center; justify-content: space-between;">
+                        <span>Estado ADB</span>
+                        <div style="width: 32px; height: 32px; background: rgba(255, 255, 255, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                            <span style="font-size: 16px;">📱</span>
+                        </div>
+                    </div>
+                    <div class="w3-padding" style="padding: 16px;">
+                        {% if adb_available %}
+                        <div style="margin-bottom: 12px;">
+                            <span class="status-badge status-online">ADB Disponible</span>
+                        </div>
+                        <p style="color: #AEA79F; font-size: 12px; margin: 8px 0;">{{ adb_info }}</p>
+                        {% else %}
+                        <div style="margin-bottom: 12px;">
+                            <span class="status-badge status-offline">ADB No Disponible</span>
+                        </div>
+                        <p style="color: #AEA79F; font-size: 12px; margin: 8px 0;">{{ adb_info }}</p>
+                        <div style="background: rgba(231, 76, 60, 0.1); border: 1px solid rgba(231, 76, 60, 0.3); border-radius: 8px; padding: 12px; margin-top: 12px;">
+                            <p style="color: #e74c3c; font-size: 11px; margin: 0;">
+                                <strong>Instalar ADB:</strong><br>
+                                Ubuntu/Debian: <code style="color: #E95420;">sudo apt install adb</code><br>
+                                Fedora: <code style="color: #E95420;">sudo dnf install android-tools</code>
+                            </p>
+                        </div>
+                        {% endif %}
+                        
+                        <button onclick="refreshDevices()" class="w3-btn w3-round-large w3-block btn-primary" style="color: white; font-size: 13px; padding: 10px; margin-top: 12px;">
+                            🔄 Actualizar Dispositivos
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Devices List -->
+                <div class="w3-card w3-round-large" style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px;">
+                    <div style="background: linear-gradient(135deg, rgba(233, 84, 32, 0.8) 0%, rgba(119, 33, 111, 0.8) 100%); color: white; padding: 10px 16px; margin: -16px -16px 12px -16px; font-size: 14px; font-weight: 500; border-radius: 12px 12px 0 0; display: flex; align-items: center; justify-content: space-between;">
+                        <span>Dispositivos Conectados</span>
+                        <span id="device-count" style="background: rgba(255, 255, 255, 0.2); padding: 2px 8px; border-radius: 12px; font-size: 11px;">{{ devices|length }}</span>
+                    </div>
+                    <div class="w3-padding" style="padding: 16px;">
+                        {% if devices %}
+                        {% for device in devices %}
+                        <div class="device-card" style="padding: 16px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                                <div>
+                                    <h4 style="color: white; margin: 0; font-size: 14px;">{{ device.model }}</h4>
+                                    <p style="color: #AEA79F; font-size: 11px; margin: 4px 0 0 0;">ID: {{ device.id }}</p>
+                                </div>
+                                <span class="status-badge {% if device.status == 'device' %}status-online{% elif device.status == 'unauthorized' %}status-unauthorized{% else %}status-offline{% endif %}">
+                                    {% if device.status == 'device' %}Conectado{% elif device.status == 'unauthorized' %}No Autorizado{% else %}{{ device.status }}{% endif %}
+                                </span>
+                            </div>
+                            
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button onclick="showDeviceInfo('{{ device.id }}')" class="btn-action">ℹ️ Info</button>
+                                <button onclick="openShell('{{ device.id }}')" class="btn-action">💻 Shell</button>
+                                <button onclick="takeScreenshot('{{ device.id }}')" class="btn-action">📷 Screenshot</button>
+                                <button onclick="rebootDevice('{{ device.id }}', 'system')" class="btn-action">🔄 Reiniciar</button>
+                                <button onclick="checkPythonEnv('{{ device.id }}')" class="btn-action">🐍 Python</button>
+                                <button onclick="showUTPyAppsPanel('{{ device.id }}')" class="btn-action">🚀 UTPyApps</button>
+                            </div>
+                            
+                            <div id="device-info-{{ device.id }}" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                                <div class="terminal-output" id="info-output-{{ device.id }}">Cargando información...</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="w3-center" style="padding: 32px 0;">
+                            <div style="font-size: 48px; margin-bottom: 12px;">📱</div>
+                            <p style="color: #AEA79F; font-size: 13px; margin: 0;">No hay dispositivos conectados</p>
+                            <p style="color: #AEA79F; font-size: 11px; margin: 8px 0 0 0;">Conecta tu dispositivo Ubuntu Touch via USB</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Shell Terminal -->
+                <div id="shell-panel" class="w3-card w3-round-large" style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px; display: none;">
+                    <div style="background: linear-gradient(135deg, rgba(233, 84, 32, 0.8) 0%, rgba(119, 33, 111, 0.8) 100%); color: white; padding: 10px 16px; margin: -16px -16px 12px -16px; font-size: 14px; font-weight: 500; border-radius: 12px 12px 0 0; display: flex; align-items: center; justify-content: space-between;">
+                        <span>Terminal Shell - <span id="shell-device-id"></span></span>
+                        <button onclick="closeShell()" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">×</button>
+                    </div>
+                    <div class="w3-padding" style="padding: 16px;">
+                        <div class="terminal-output" id="shell-output">
+                            <div style="color: #AEA79F;">Bienvenido al terminal ADB. Escribe un comando y presiona Enter.</div>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 12px;">
+                            <span style="color: #E95420; font-family: 'Courier New', monospace; font-size: 12px; padding: 8px 0;">$</span>
+                            <input type="text" id="shell-input" placeholder="Escribe un comando..." style="flex: 1; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 8px 12px; color: white; font-size: 12px; font-family: 'Courier New', monospace;">
+                            <button onclick="executeShellCommand()" class="btn-action btn-primary">Ejecutar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- UTPyApps Panel -->
+                <div id="utpyapps-panel" class="w3-card w3-round-large" style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px; display: none;">
+                    <div style="background: linear-gradient(135deg, rgba(233, 84, 32, 0.8) 0%, rgba(119, 33, 111, 0.8) 100%); color: white; padding: 10px 16px; margin: -16px -16px 12px -16px; font-size: 14px; font-weight: 500; border-radius: 12px 12px 0 0; display: flex; align-items: center; justify-content: space-between;">
+                        <span>UTPyApps en Dispositivo - <span id="utpyapps-device-id"></span></span>
+                        <button onclick="closeUTPyAppsPanel()" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">×</button>
+                    </div>
+                    <div class="w3-padding" style="padding: 16px;">
+                        <!-- Python Environment Check -->
+                        <div style="margin-bottom: 16px;">
+                            <h4 style="color: white; font-size: 13px; margin: 0 0 8px 0;">🐍 Entorno Python</h4>
+                            <div id="python-env-status" class="terminal-output" style="min-height: 60px;">
+                                <div style="color: #AEA79F;">Haz clic en "Verificar Python" para comprobar el entorno.</div>
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+                                <button onclick="checkPythonEnv(currentUTPyAppsDeviceId)" class="btn-action">Verificar Python</button>
+                                <button onclick="installPip(currentUTPyAppsDeviceId)" class="btn-action btn-primary">📦 Instalar pip</button>
+                                <button onclick="installVirtualenv(currentUTPyAppsDeviceId)" class="btn-action">🔧 Instalar virtualenv</button>
+                            </div>
+                        </div>
+
+                        <!-- Environment Setup -->
+                        <div style="margin-bottom: 16px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                            <h4 style="color: white; font-size: 13px; margin: 0 0 8px 0;">📁 Crear Entorno UTPyApps</h4>
+                            <p style="color: #AEA79F; font-size: 11px; margin: 0 0 8px 0;">Crea la estructura de directorios y archivos necesarios en ~/utpyapps</p>
+                            <button onclick="createUTPyAppsEnvironment(currentUTPyAppsDeviceId)" class="btn-action btn-primary">Crear Entorno</button>
+                        </div>
+
+                        <!-- Virtual Environment -->
+                        <div style="margin-bottom: 16px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                            <h4 style="color: white; font-size: 13px; margin: 0 0 8px 0;">🔧 Entorno Virtual</h4>
+                            <p style="color: #AEA79F; font-size: 11px; margin: 0 0 8px 0;">Crear y gestionar entorno virtual Python</p>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                                <button onclick="createVirtualenv(currentUTPyAppsDeviceId)" class="btn-action btn-primary">Crear venv</button>
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <input type="text" id="package-input" placeholder="Paquete (ej: microdot)" style="flex: 1; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 8px 12px; color: white; font-size: 12px;">
+                                <button onclick="installPackage(currentUTPyAppsDeviceId)" class="btn-action">Instalar</button>
+                            </div>
+                            <div id="venv-status" class="terminal-output" style="margin-top: 8px; display: none;"></div>
+                        </div>
+
+                        <!-- App Copy -->
+                        <div style="margin-bottom: 16px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                            <h4 style="color: white; font-size: 13px; margin: 0 0 8px 0;">📦 Copiar Apps al Dispositivo</h4>
+                            <div style="margin-bottom: 8px;">
+                                <select id="app-select" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 8px 12px; color: white; font-size: 12px; width: 100%;">
+                                    <option value="">Seleccionar app...</option>
+                                </select>
+                            </div>
+                            <button onclick="copyAppToDevice(currentUTPyAppsDeviceId)" class="btn-action">Copiar App</button>
+                            <div id="copy-status" class="terminal-output" style="margin-top: 8px; display: none;"></div>
+                        </div>
+
+                        <!-- UTPyApps Control -->
+                        <div style="margin-bottom: 16px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                            <h4 style="color: white; font-size: 13px; margin: 0 0 8px 0;">🚀 Control UTPyApps</h4>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button onclick="startUTPyApps(currentUTPyAppsDeviceId)" class="btn-action btn-primary">▶ Iniciar</button>
+                                <button onclick="stopUTPyApps(currentUTPyAppsDeviceId)" class="btn-action">⏹ Detener</button>
+                                <button onclick="viewUTPyAppsLogs(currentUTPyAppsDeviceId)" class="btn-action">📋 Logs</button>
+                            </div>
+                            <div id="utpyapps-status" class="terminal-output" style="margin-top: 8px; display: none;"></div>
+                        </div>
+
+                        <!-- Apps Nativas -->
+                        <div style="margin-bottom: 16px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                            <h4 style="color: white; font-size: 13px; margin: 0 0 8px 0;">📱 Apps Nativas</h4>
+                            <p style="color: #AEA79F; font-size: 11px; margin: 0 0 8px 0;">Abrir aplicaciones nativas de Ubuntu Touch</p>
+                            
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                                <button onclick="getDeviceIP(currentUTPyAppsDeviceId)" class="btn-action">🌐 Obtener IP</button>
+                                <span id="device-ip-display" style="color: #E95420; font-size: 12px; padding: 8px 0;">-</span>
+                            </div>
+                            
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button onclick="openMorphBrowser(currentUTPyAppsDeviceId)" class="btn-action btn-primary">🌐 Morph Browser</button>
+                                <button onclick="openLomiriTerminal(currentUTPyAppsDeviceId)" class="btn-action">💻 Terminal</button>
+                            </div>
+                            
+                            <div id="native-apps-status" class="terminal-output" style="margin-top: 8px; display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer Transparente -->
+    <div class="footer">
+        <div class="w3-container w3-padding-8">
+            <div class="w3-center">
+                <span class="small-text">© 2026 UTPyApps • Ubuntu Touch • Lomiri</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Password Sudo -->
+    <div id="sudo-modal" class="w3-modal" style="display: none;">
+        <div class="w3-modal-content w3-card-4" style="background: linear-gradient(135deg, #2c001e 0%, #77216f 100%); border-radius: 16px; max-width: 400px; margin-top: 100px;">
+            <div class="w3-container" style="padding: 24px;">
+                <h3 style="color: white; margin: 0 0 16px 0; font-size: 18px;">🔐 Se requiere Password</h3>
+                <p style="color: #AEA79F; font-size: 13px; margin: 0 0 16px 0;">Esta operación requiere privilegios de administrador. Ingresa tu password de bloqueo/pin:</p>
+                <input type="password" id="sudo-password" placeholder="Password" style="width: 100%; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 12px; color: white; font-size: 14px; margin-bottom: 16px;">
+                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                    <button onclick="closeSudoModal()" class="btn-action" style="background: rgba(255, 255, 255, 0.1);">Cancelar</button>
+                    <button onclick="confirmSudoPassword()" class="btn-action btn-primary">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentDeviceId = null;
+        let currentUTPyAppsDeviceId = null;
+        let pendingSudoCallback = null;
+
+        function refreshDevices() {
+            location.reload();
+        }
+
+        function showSudoModal(callback) {
+            pendingSudoCallback = callback;
+            document.getElementById('sudo-modal').style.display = 'block';
+            document.getElementById('sudo-password').value = '';
+            document.getElementById('sudo-password').focus();
+        }
+
+        function closeSudoModal() {
+            document.getElementById('sudo-modal').style.display = 'none';
+            document.getElementById('sudo-password').value = '';
+            pendingSudoCallback = null;
+        }
+
+        function confirmSudoPassword() {
+            const password = document.getElementById('sudo-password').value;
+            if (pendingSudoCallback) {
+                pendingSudoCallback(password);
+            }
+            closeSudoModal();
+        }
+
+        // Enter key to confirm password
+        document.getElementById('sudo-password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                confirmSudoPassword();
+            }
+        });
+
+        function showDeviceInfo(deviceId) {
+            const infoPanel = document.getElementById(`device-info-${deviceId}`);
+            const output = document.getElementById(`info-output-${deviceId}`);
+            
+            if (infoPanel.style.display === 'none') {
+                infoPanel.style.display = 'block';
+                output.innerHTML = '<div class="loading-spinner"></div> Cargando...';
+                
+                fetch(`/_app/adb_manager/api/device/${deviceId}/info`)
+                    .then(response => response.json())
+                    .then(data => {
+                        let html = '<div style="color: white;">';
+                        for (const [key, value] of Object.entries(data)) {
+                            if (key !== 'id') {
+                                const keyFormatted = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                html += `<div style="margin: 4px 0;"><strong style="color: #E95420;">${keyFormatted}:</strong> ${value}</div>`;
+                            }
+                        }
+                        html += '</div>';
+                        output.innerHTML = html;
+                    })
+                    .catch(error => {
+                        output.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+                    });
+            } else {
+                infoPanel.style.display = 'none';
+            }
+        }
+
+        function openShell(deviceId) {
+            currentDeviceId = deviceId;
+            document.getElementById('shell-panel').style.display = 'block';
+            document.getElementById('shell-device-id').textContent = deviceId;
+            document.getElementById('shell-output').innerHTML = '<div style="color: #AEA79F;">Terminal listo. Escribe un comando.</div>';
+            document.getElementById('shell-input').focus();
+            document.getElementById('shell-panel').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function closeShell() {
+            document.getElementById('shell-panel').style.display = 'none';
+            currentDeviceId = null;
+        }
+
+        function executeShellCommand() {
+            const input = document.getElementById('shell-input');
+            const command = input.value.trim();
+            const output = document.getElementById('shell-output');
+            
+            if (!command || !currentDeviceId) return;
+            
+            output.innerHTML += `<div style="color: #E95420; margin: 8px 0;">$ ${command}</div>`;
+            input.value = '';
+            
+            fetch(`/_app/adb_manager/api/device/${currentDeviceId}/shell`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: command })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    output.innerHTML += `<div style="color: #e74c3c; margin: 4px 0;">Error: ${data.error}</div>`;
+                } else {
+                    output.innerHTML += `<div style="color: #00ff00; margin: 4px 0; white-space: pre-wrap;">${data.stdout || data.stderr}</div>`;
+                }
+                output.scrollTop = output.scrollHeight;
+            })
+            .catch(error => {
+                output.innerHTML += `<div style="color: #e74c3c; margin: 4px 0;">Error: ${error.message}</div>`;
+            });
+        }
+
+        // Enter key to execute command
+        document.getElementById('shell-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                executeShellCommand();
+            }
+        });
+
+        function takeScreenshot(deviceId) {
+            const output = document.getElementById(`info-output-${deviceId}`) || document.getElementById('shell-output');
+            
+            if (output) {
+                output.innerHTML += '<div class="loading-spinner"></div> Capturando pantalla...';
+            }
+            
+            fetch(`/_app/adb_manager/api/device/${deviceId}/screenshot`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        if (output) output.innerHTML += `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                    } else {
+                        if (output) {
+                            output.innerHTML += `<div style="color: #00ff00;">Screenshot guardado: <a href="${data.path}" target="_blank" style="color: #E95420;">Ver imagen</a></div>`;
+                        }
+                    }
+                })
+                .catch(error => {
+                    if (output) output.innerHTML += `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+                });
+        }
+
+        function rebootDevice(deviceId, mode) {
+            if (!confirm(`¿Reiniciar dispositivo en modo ${mode}?`)) return;
+            
+            fetch(`/_app/adb_manager/api/device/${deviceId}/reboot`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: mode })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    alert('Dispositivo reiniciado correctamente');
+                    setTimeout(() => refreshDevices(), 2000);
+                }
+            })
+            .catch(error => {
+                alert('Error: ' + error.message);
+            });
+        }
+
+        function checkPythonEnv(deviceId) {
+            const output = document.getElementById('python-env-status');
+            output.innerHTML = '<div class="loading-spinner"></div> Verificando entorno Python...';
+            
+            fetch(`/_app/adb_manager/api/device/${deviceId}/check-python`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        output.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                    } else {
+                        let html = '<div style="color: white;">';
+                        html += `<div style="margin: 4px 0;"><strong style="color: #E95420;">Python3:</strong> ${data.python_installed ? '✅ Instalado (' + data.python_path + ')' : '❌ No instalado'}</div>`;
+                        html += `<div style="margin: 4px 0;"><strong style="color: #E95420;">Pip3:</strong> ${data.pip_installed ? '✅ Instalado (' + data.pip_path + ')' : '❌ No instalado'}</div>`;
+                        html += '</div>';
+                        output.innerHTML = html;
+                    }
+                })
+                .catch(error => {
+                    output.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+                });
+        }
+
+        function installPip(deviceId) {
+            showSudoModal((password) => {
+                const output = document.getElementById('python-env-status');
+                output.innerHTML = '<div class="loading-spinner"></div> Instalando pip...';
+                
+                fetch(`/_app/adb_manager/api/device/${deviceId}/install-pip`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sudo_password: password })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        output.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                    } else {
+                        output.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}<br><small>Método: ${data.method}</small></div>`;
+                    }
+                })
+                .catch(error => {
+                    output.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+                });
+            });
+        }
+
+        function installVirtualenv(deviceId) {
+            showSudoModal((password) => {
+                const output = document.getElementById('python-env-status');
+                output.innerHTML = '<div class="loading-spinner"></div> Instalando virtualenv...';
+                
+                fetch(`/_app/adb_manager/api/device/${deviceId}/install-virtualenv`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sudo_password: password })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        output.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                    } else {
+                        output.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}</div>`;
+                    }
+                })
+                .catch(error => {
+                    output.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+                });
+            });
+        }
+
+        function createVirtualenv(deviceId) {
+            showSudoModal((password) => {
+                const statusDiv = document.getElementById('venv-status');
+                statusDiv.style.display = 'block';
+                statusDiv.innerHTML = '<div class="loading-spinner"></div> Creando entorno virtual...';
+                
+                fetch(`/_app/adb_manager/api/device/${deviceId}/create-venv`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ env_path: '~/utpyapps/venv', sudo_password: password })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                    } else {
+                        statusDiv.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}</div>`;
+                    }
+                })
+                .catch(error => {
+                    statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+                });
+            });
+        }
+
+        function installPackage(deviceId) {
+            const packageInput = document.getElementById('package-input');
+            const packageName = packageInput.value.trim();
+            
+            if (!packageName) {
+                alert('Ingresa el nombre del paquete');
+                return;
+            }
+            
+            showSudoModal((password) => {
+                const statusDiv = document.getElementById('venv-status');
+                statusDiv.style.display = 'block';
+                statusDiv.innerHTML = '<div class="loading-spinner"></div> Instalando paquete...';
+                
+                fetch(`/_app/adb_manager/api/device/${deviceId}/install-package`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ package: packageName, env_path: '~/utpyapps/venv', sudo_password: password })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                    } else {
+                        statusDiv.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}</div>`;
+                        packageInput.value = '';
+                    }
+                })
+                .catch(error => {
+                    statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+                });
+            });
+        }
+
+        function showUTPyAppsPanel(deviceId) {
+            currentUTPyAppsDeviceId = deviceId;
+            document.getElementById('utpyapps-panel').style.display = 'block';
+            document.getElementById('utpyapps-device-id').textContent = deviceId;
+            loadLocalApps();
+            document.getElementById('utpyapps-panel').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function closeUTPyAppsPanel() {
+            document.getElementById('utpyapps-panel').style.display = 'none';
+            currentUTPyAppsDeviceId = null;
+        }
+
+        function loadLocalApps() {
+            const select = document.getElementById('app-select');
+            select.innerHTML = '<option value="">Seleccionar app...</option>';
+            
+            fetch('/_app/adb_manager/api/apps/local')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error('Error loading apps:', data.error);
+                        return;
+                    }
+                    
+                    data.forEach(app => {
+                        if (!app.hidden) {
+                            const option = document.createElement('option');
+                            option.value = app.folder;
+                            option.textContent = app.name;
+                            select.appendChild(option);
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading apps:', error);
+                });
+        }
+
+        function createUTPyAppsEnvironment(deviceId) {
+            if (!confirm('¿Crear entorno UTPyApps en el dispositivo? Esto creará directorios en ~/utpyapps')) return;
+            
+            const output = document.getElementById('python-env-status');
+            output.innerHTML = '<div class="loading-spinner"></div> Creando entorno...';
+            
+            fetch(`/_app/adb_manager/api/device/${deviceId}/create-environment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    output.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                } else {
+                    output.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}</div>`;
+                }
+            })
+            .catch(error => {
+                output.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+            });
+        }
+
+        function copyAppToDevice(deviceId) {
+            const appSelect = document.getElementById('app-select');
+            const appName = appSelect.value;
+            
+            if (!appName) {
+                alert('Selecciona una app para copiar');
+                return;
+            }
+            
+            if (!confirm(`¿Copiar app "${appName}" al dispositivo?`)) return;
+            
+            const statusDiv = document.getElementById('copy-status');
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<div class="loading-spinner"></div> Copiando archivos...';
+            
+            fetch(`/_app/adb_manager/api/device/${deviceId}/copy-app`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ app_name: appName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                } else {
+                    statusDiv.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}<br>Archivos copiados: ${data.total_files}</div>`;
+                }
+            })
+            .catch(error => {
+                statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+            });
+        }
+
+        function startUTPyApps(deviceId) {
+            const statusDiv = document.getElementById('utpyapps-status');
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<div class="loading-spinner"></div> Iniciando UTPyApps...';
+            
+            fetch(`/_app/adb_manager/api/device/${deviceId}/start-utpyapps`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                } else {
+                    statusDiv.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}</div>`;
+                }
+            })
+            .catch(error => {
+                statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+            });
+        }
+
+        function stopUTPyApps(deviceId) {
+            if (!confirm('¿Detener UTPyApps en el dispositivo?')) return;
+            
+            const statusDiv = document.getElementById('utpyapps-status');
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<div class="loading-spinner"></div> Deteniendo UTPyApps...';
+            
+            fetch(`/_app/adb_manager/api/device/${deviceId}/stop-utpyapps`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                } else {
+                    statusDiv.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}</div>`;
+                }
+            })
+            .catch(error => {
+                statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+            });
+        }
+
+        function viewUTPyAppsLogs(deviceId) {
+            const statusDiv = document.getElementById('utpyapps-status');
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<div class="loading-spinner"></div> Obteniendo logs...';
+            
+            fetch(`/_app/adb_manager/api/device/${deviceId}/logs`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                    } else {
+                        statusDiv.innerHTML = `<div style="color: #00ff00; white-space: pre-wrap; font-size: 11px;">${data.logs || 'No hay logs disponibles'}</div>`;
+                    }
+                })
+                .catch(error => {
+                    statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+                });
+        }
+
+        function getDeviceIP(deviceId) {
+            const ipDisplay = document.getElementById('device-ip-display');
+            ipDisplay.textContent = 'Obteniendo...';
+            
+            fetch(`/_app/adb_manager/api/device/${deviceId}/ip`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        ipDisplay.textContent = 'Error';
+                        alert('Error obteniendo IP: ' + data.error);
+                    } else {
+                        ipDisplay.textContent = data.ip;
+                    }
+                })
+                .catch(error => {
+                    ipDisplay.textContent = 'Error';
+                    alert('Error: ' + error.message);
+                });
+        }
+
+        function openMorphBrowser(deviceId) {
+            const ipDisplay = document.getElementById('device-ip-display').textContent;
+            
+            let url = null;
+            if (ipDisplay && ipDisplay !== '-' && ipDisplay !== 'Error' && ipDisplay !== 'Obteniendo...') {
+                url = `http://${ipDisplay}:8080`;
+                if (!confirm(`¿Abrir Morph Browser con URL http://${ipDisplay}:8080?`)) return;
+            } else {
+                if (!confirm('¿Abrir Morph Browser sin URL específica?')) return;
+            }
+            
+            const statusDiv = document.getElementById('native-apps-status');
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<div class="loading-spinner"></div> Abriendo Morph Browser...';
+            
+            fetch(`/_app/adb_manager/api/device/${deviceId}/open-browser`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: url })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                } else {
+                    statusDiv.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}</div>`;
+                }
+            })
+            .catch(error => {
+                statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+            });
+        }
+
+        function openLomiriTerminal(deviceId) {
+            const command = prompt('Ingresa un comando para ejecutar en el terminal (opcional):', '');
+            
+            const statusDiv = document.getElementById('native-apps-status');
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<div class="loading-spinner"></div> Abriendo Terminal...';
+            
+            fetch(`/_app/adb_manager/api/device/${deviceId}/open-terminal`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: command || null })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                } else {
+                    statusDiv.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}</div>`;
+                }
+            })
+            .catch(error => {
+                statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+            });
+        }
+    </script>
+</body>
+</html>
