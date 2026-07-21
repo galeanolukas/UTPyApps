@@ -1243,11 +1243,17 @@ def api_install_pip_in_venv(request, device_id):
 @app.route('/api/device/<device_id>/setup-environment', methods=['POST'])
 def api_setup_environment(request, device_id):
     """API endpoint para configurar entorno de desarrollo automáticamente"""
-    data = request.json
-    sudo_password = data.get('sudo_password')
-    
-    success, result = ADBManager.setup_environment(device_id, sudo_password)
-    if success:
-        return Response(result, headers={'Content-Type': 'application/json'})
-    else:
-        return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
+    try:
+        data = request.json
+        sudo_password = data.get('sudo_password')
+        
+        success, result = ADBManager.setup_environment(device_id, sudo_password)
+        if success:
+            return Response(result, headers={'Content-Type': 'application/json'})
+        else:
+            return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        print(f"Error en api_setup_environment: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({'error': f'Error interno: {str(e)}'}, status_code=500, headers={'Content-Type': 'application/json'})
