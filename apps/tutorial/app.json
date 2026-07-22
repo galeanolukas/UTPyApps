@@ -2,5 +2,6 @@
   "name": "Tutorial UTPyApps",
   "description": "Tutorial interactivo para aprender a crear apps con UTPyApps",
   "author": "UTPyApps",
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "icon": "icon.png"
 }

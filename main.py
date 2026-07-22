@@ -289,6 +289,28 @@ async def app_static_files(request, app_name, path):
 
     return Response(content, headers={'Content-Type': content_type})
 
+@app.route('/_app/<app_name>/temp/<path:path>')
+async def app_temp_files(request, app_name, path):
+    """Servir archivos temporales desde ./apps/{app_name}/temp"""
+    app_temp_root = os.path.abspath(os.path.join(APPS_DIR, app_name, 'temp'))
+    requested_path = os.path.abspath(os.path.join(app_temp_root, path))
+
+    # Prevent path traversal
+    if not (requested_path == app_temp_root or requested_path.startswith(app_temp_root + os.sep)):
+        return Response('Not found', status_code=404)
+
+    if not os.path.isfile(requested_path):
+        return Response('Not found', status_code=404)
+
+    content_type, _ = mimetypes.guess_type(requested_path)
+    if content_type is None:
+        content_type = 'text/plain'
+
+    with open(requested_path, 'rb') as f:
+        content = f.read()
+
+    return Response(content, headers={'Content-Type': content_type})
+
 # Cargar apps instaladas
 def cargar_apps():
     apps = []

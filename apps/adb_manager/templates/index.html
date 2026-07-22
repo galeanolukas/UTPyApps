@@ -601,25 +601,35 @@
         });
 
         function takeScreenshot(deviceId) {
+            // Mostrar panel de info si no está visible
+            const infoPanel = document.getElementById(`device-info-${deviceId}`);
+            if (infoPanel) {
+                infoPanel.style.display = 'block';
+            }
+            
             const output = document.getElementById(`info-output-${deviceId}`) || document.getElementById('shell-output');
             
             if (output) {
-                output.innerHTML += '<div class="loading-spinner"></div> Capturando pantalla...';
+                output.innerHTML = '<div class="loading-spinner"></div> Capturando pantalla...';
             }
             
             fetch(`/_app/adb_manager/api/device/${deviceId}/screenshot`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
-                        if (output) output.innerHTML += `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                        if (output) output.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                        else alert('Error: ' + data.error);
                     } else {
                         if (output) {
-                            output.innerHTML += `<div style="color: #00ff00;">Screenshot guardado: <a href="${data.path}" target="_blank" style="color: #E95420;">Ver imagen</a></div>`;
+                            output.innerHTML = `<div style="color: #00ff00;">Screenshot guardado: <a href="${data.path}" target="_blank" style="color: #E95420;">Ver imagen</a> (${data.width}x${data.height})</div>`;
+                        } else {
+                            alert('Screenshot guardado: ' + data.path);
                         }
                     }
                 })
                 .catch(error => {
-                    if (output) output.innerHTML += `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+                    if (output) output.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+                    else alert('Error: ' + error.message);
                 });
         }
 

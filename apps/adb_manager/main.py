@@ -2076,11 +2076,30 @@ X-Lomiri-Touch=true
             
             os.remove(temp_utpyapps)
             
+            # Copiar iconos de UTPyApps al dispositivo (PNG y SVG)
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            icon_png = os.path.join(project_root, 'static', 'images', 'UTPyApps.png')
+            icon_svg = os.path.join(project_root, 'static', 'images', 'UTPyApps.svg')
+            
+            icon_copied = False
+            if os.path.exists(icon_png):
+                remote_icon_png = f'{icon_dir}/utpyapps.png'
+                push_icon_cmd = ['adb', '-s', device_id, 'push', icon_png, remote_icon_png]
+                icon_result = subprocess.run(push_icon_cmd, capture_output=True, text=True, timeout=30)
+                icon_copied = icon_result.returncode == 0
+            
+            if os.path.exists(icon_svg):
+                remote_icon_svg = f'{icon_dir}/utpyapps.svg'
+                push_svg_cmd = ['adb', '-s', device_id, 'push', icon_svg, remote_icon_svg]
+                svg_result = subprocess.run(push_svg_cmd, capture_output=True, text=True, timeout=30)
+                icon_copied = icon_copied or svg_result.returncode == 0
+            
             results.append({
                 'app': 'utpyapps',
                 'name': 'UTPyApps',
                 'desktop_file': utpyapps_desktop_file,
-                'success': push_utpyapps_result.returncode == 0
+                'success': push_utpyapps_result.returncode == 0,
+                'icon_copied': icon_copied
             })
             
             # Reiniciar unity8 para que el launcher detecte los nuevos archivos .desktop
@@ -2131,10 +2150,10 @@ X-Lomiri-Touch=true
                 'result': rm_desktop_result.stdout
             })
             
-            # Eliminar iconos de UTPyApps
-            rm_icons_cmd = ['adb', '-s', device_id, 'shell', f'rm -f {icon_dir}/utpyapps-*.png']
+            # Eliminar iconos de UTPyApps (incluyendo los iconos principales PNG y SVG)
+            rm_icons_cmd = ['adb', '-s', device_id, 'shell', f'rm -f {icon_dir}/utpyapps-*.png {icon_dir}/utpyapps.png {icon_dir}/utpyapps.svg']
             if sudo_password:
-                rm_icons_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S rm -f {icon_dir}/utpyapps-*.png']
+                rm_icons_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S rm -f {icon_dir}/utpyapps-*.png {icon_dir}/utpyapps.png {icon_dir}/utpyapps.svg']
             rm_icons_result = subprocess.run(rm_icons_cmd, capture_output=True, text=True, timeout=30)
             results.append({
                 'action': 'remove_icons',
@@ -2148,6 +2167,138 @@ X-Lomiri-Touch=true
             }
         except Exception as e:
             return False, f"Error eliminando UTPyApps: {str(e)}"
+    
+    @staticmethod
+    def take_screenshot(device_id, output_path=None):
+        """Tomar captura de pantalla del dispositivo Ubuntu Touch"""
+        try:
+            import tempfile
+            from PIL import Image
+            import numpy as np
+            
+            if not output_path:
+                output_path = os.path.join(tempfile.gettempdir(), 'screenshot.png')
+            
+            # Rutas en el dispositivo
+            device_bgra = '/tmp/screenshot.bgra'
+            
+            print(f"[SCREENSHOT] Iniciando captura para dispositivo {device_id}")
+            
+            # Capturar pantalla usando mirscreencast
+            capture_cmd = ['adb', '-s', device_id, 'shell', 
+                          'MIR_SOCKET=/run/mir_socket mirscreencast -f ' + device_bgra + ' -n 1']
+            print(f"[SCREENSHOT] Ejecutando: {' '.join(capture_cmd)}")
+            capture_result = subprocess.run(capture_cmd, capture_output=True, text=True, timeout=30)
+            print(f"[SCREENSHOT] Return code: {capture_result.returncode}")
+            print(f"[SCREENSHOT] Stdout: {capture_result.stdout}")
+            print(f"[SCREENSHOT] Stderr: {capture_result.stderr}")
+            
+            if capture_result.returncode != 0:
+                return False, f"Error capturando pantalla: {capture_result.stderr}"
+            
+            # Verificar si el archivo se creó en el dispositivo
+            check_cmd = ['adb', '-s', device_id, 'shell', f'ls -la {device_bgra}']
+            check_result = subprocess.run(check_cmd, capture_output=True, text=True, timeout=10)
+            print(f"[SCREENSHOT] Archivo en dispositivo: {check_result.stdout}")
+            
+            # Obtener información del display para dimensiones
+            query_cmd = ['adb', '-s', device_id, 'shell', 
+                        'MIR_SOCKET=/run/mir_socket mirscreencast --query']
+            query_result = subprocess.run(query_cmd, capture_output=True, text=True, timeout=10)
+            print(f"[SCREENSHOT] Query output: {query_result.stdout}")
+            
+            # Parsear dimensiones del output
+            width, height = 1080, 2340  # Valores por defecto
+            if query_result.returncode == 0:
+                for line in query_result.stdout.split('\n'):
+                    if 'Output size:' in line:
+                        try:
+                            size_str = line.split('Output size:')[1].strip()
+                            width, height = map(int, size_str.split('x'))
+                            print(f"[SCREENSHOT] Dimensiones detectadas: {width}x{height}")
+                        except:
+                            pass
+            
+            # Pull del archivo BGRA al PC
+            local_bgra = os.path.join(tempfile.gettempdir(), 'screenshot.bgra')
+            pull_cmd = ['adb', '-s', device_id, 'pull', device_bgra, local_bgra]
+            print(f"[SCREENSHOT] Pulling: {device_bgra} -> {local_bgra}")
+            pull_result = subprocess.run(pull_cmd, capture_output=True, text=True, timeout=30)
+            print(f"[SCREENSHOT] Pull return code: {pull_result.returncode}")
+            print(f"[SCREENSHOT] Pull stdout: {pull_result.stdout}")
+            print(f"[SCREENSHOT] Pull stderr: {pull_result.stderr}")
+            
+            if pull_result.returncode != 0:
+                return False, f"Error descargando captura: {pull_result.stderr}"
+            
+            # Verificar tamaño del archivo local
+            if os.path.exists(local_bgra):
+                file_size = os.path.getsize(local_bgra)
+                print(f"[SCREENSHOT] Tamaño del archivo BGRA: {file_size} bytes")
+            else:
+                return False, "El archivo BGRA no se descargó correctamente"
+            
+            # Convertir BGRA a PNG usando PIL
+            try:
+                # Leer archivo BGRA
+                with open(local_bgra, 'rb') as f:
+                    bgra_data = f.read()
+                
+                print(f"[SCREENSHOT] Datos BGRA leídos: {len(bgra_data)} bytes")
+                
+                # Convertir a array numpy y reordenar canales (BGRA -> RGBA)
+                img_array = np.frombuffer(bgra_data, dtype=np.uint8)
+                expected_size = width * height * 4
+                print(f"[SCREENSHOT] Tamaño esperado: {expected_size} bytes, Tamaño real: {len(img_array)} bytes")
+                
+                if len(img_array) != expected_size:
+                    print(f"[SCREENSHOT] WARNING: Tamaño de datos no coincide con dimensiones")
+                
+                img_array = img_array.reshape((height, width, 4))
+                img_array = img_array[:, :, [2, 1, 0, 3]]  # BGRA -> RGBA
+                
+                # Crear imagen PIL y guardar como PNG
+                img = Image.fromarray(img_array, 'RGBA')
+                img.save(output_path, 'PNG')
+                print(f"[SCREENSHOT] PNG guardado en: {output_path}")
+                
+                # Limpiar archivos temporales
+                os.remove(local_bgra)
+                subprocess.run(['adb', '-s', device_id, 'shell', 'rm -f ' + device_bgra], 
+                              capture_output=True, timeout=10)
+                
+                return True, {
+                    'message': 'Captura de pantalla tomada exitosamente',
+                    'path': output_path,
+                    'width': width,
+                    'height': height
+                }
+            except ImportError:
+                # Si PIL/numpy no están disponibles, intentar con ImageMagick
+                convert_cmd = ['convert', '-depth', '8', '-size', f'{width}x{height}', 
+                              'bgra:' + local_bgra, output_path]
+                convert_result = subprocess.run(convert_cmd, capture_output=True, text=True, timeout=30)
+                
+                os.remove(local_bgra)
+                subprocess.run(['adb', '-s', device_id, 'shell', 'rm -f ' + device_bgra], 
+                              capture_output=True, timeout=10)
+                
+                if convert_result.returncode == 0:
+                    return True, {
+                        'message': 'Captura de pantalla tomada exitosamente (ImageMagick)',
+                        'path': output_path,
+                        'width': width,
+                        'height': height
+                    }
+                else:
+                    return False, "Error convirtiendo BGRA a PNG. Instala PIL/Pillow o ImageMagick"
+            except Exception as e:
+                print(f"[SCREENSHOT] Error procesando imagen: {str(e)}")
+                return False, f"Error procesando imagen: {str(e)}"
+                
+        except Exception as e:
+            print(f"[SCREENSHOT] Error general: {str(e)}")
+            return False, f"Error tomando captura de pantalla: {str(e)}"
     
     @staticmethod
     def check_venv_status(device_id, venv_path='/home/phablet/.ubtool/venv'):
@@ -2342,28 +2493,21 @@ def api_reboot(request, device_id):
 
 @app.route('/api/device/<device_id>/screenshot')
 def api_screenshot(request, device_id):
-    """API endpoint para capturar pantalla del dispositivo"""
+    """API endpoint para capturar pantalla del dispositivo Ubuntu Touch"""
     try:
-        # Capturar pantalla
-        success, result = ADBManager.execute_shell_command(device_id, 'screencap -p /sdcard/screenshot.png')
-        if not success:
-            return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
-        
         # Crear directorio temporal si no existe
         temp_dir = os.path.join(os.path.dirname(__file__), 'temp')
         os.makedirs(temp_dir, exist_ok=True)
         
         local_path = os.path.join(temp_dir, f'screenshot_{device_id}.png')
         
-        # Descargar captura
-        success, result = ADBManager.pull_file(device_id, '/sdcard/screenshot.png', local_path)
+        # Capturar pantalla usando mirscreencast
+        success, result = ADBManager.take_screenshot(device_id, local_path)
         if not success:
             return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
         
-        # Limpiar archivo del dispositivo
-        ADBManager.execute_shell_command(device_id, 'rm /sdcard/screenshot.png')
-        
-        return Response({'success': True, 'path': f'/_app/adb_manager/temp/screenshot_{device_id}.png'}, 
+        return Response({'success': True, 'path': f'/_app/adb_manager/temp/screenshot_{device_id}.png', 
+                        'width': result.get('width'), 'height': result.get('height')}, 
                        headers={'Content-Type': 'application/json'})
     except Exception as e:
         return Response({'error': str(e)}, status_code=500, headers={'Content-Type': 'application/json'})

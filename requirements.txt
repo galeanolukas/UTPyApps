@@ -1,2 +1,4 @@
 microdot
 Jinja2
+Pillow
+numpy
