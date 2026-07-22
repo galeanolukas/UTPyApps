@@ -1,0 +1,10 @@
+{
+  "name": "Ollama Chat",
+  "description": "Chat con modelos de IA usando Ollama en Ubuntu Touch",
+  "author": "UTPyApps",
+  "version": "1.0.0",
+  "icon": "icon.png",
+  "requirements": [
+    "ollama>=0.1.0"
+  ]
+}

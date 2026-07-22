@@ -277,6 +277,9 @@
                         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
                             <button onclick="generateDesktopFiles('{{ devices[0].id }}')" class="btn-action" style="width: 100%;">📱 Generar Accesos Launcher</button>
                         </div>
+                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                            <button onclick="removeUTPyApps('{{ devices[0].id }}')" class="btn-action" style="width: 100%; background: rgba(231, 76, 60, 0.2); border: 1px solid rgba(231, 76, 60, 0.5);">🗑️ Eliminar UTPyApps</button>
+                        </div>
                         <div id="desktop-status" class="terminal-output" style="display: none; margin-top: 12px;"></div>
                     </div>
                 </div>
@@ -377,20 +380,6 @@
                         <button onclick="closeUTPyAppsPanel()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0;">×</button>
                     </div>
                     <div style="padding: 24px;">
-                        <!-- Python Environment Check -->
-                        <div style="margin-bottom: 24px;">
-                            <h4 style="color: white; font-size: 15px; margin: 0 0 12px 0; font-weight: 600;">🐍 Entorno Python</h4>
-                            <p style="color: #888; font-size: 14px; margin: 0 0 12px 0;">Verificar instalación de Python y pip en el dispositivo</p>
-                            <div id="python-env-status" class="terminal-output" style="min-height: 80px;">
-                                <div style="color: #888;">Haz clic en "Verificar Python" para comprobar el entorno.</div>
-                            </div>
-                            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px;">
-                                <button onclick="checkPythonEnv(currentUTPyAppsDeviceId)" class="btn-action">Verificar Python</button>
-                                <button onclick="installPip(currentUTPyAppsDeviceId)" class="btn-action btn-primary">📦 Instalar pip</button>
-                                <button onclick="installVirtualenv(currentUTPyAppsDeviceId)" class="btn-action">🔧 Instalar virtualenv</button>
-                            </div>
-                        </div>
-
                         <!-- Environment Setup (Simplified) -->
                         <div style="margin-bottom: 24px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
                             <h4 style="color: white; font-size: 15px; margin: 0 0 12px 0; font-weight: 600;">🚀 Configurar Entorno de Desarrollo</h4>
@@ -869,6 +858,38 @@
             })
             .catch(error => {
                 statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+            });
+        }
+
+        function removeUTPyApps(deviceId) {
+            if (!confirm('⚠️ ADVERTENCIA: Esta acción eliminará completamente UTPyApps del dispositivo.\n\nSe eliminará:\n- Directorio ~/utpyapps (todas las apps y archivos)\n- Archivos .desktop del launcher\n- Iconos de las apps\n\nEsta acción no se puede deshacer. ¿Estás seguro de continuar?')) {
+                return;
+            }
+            
+            showSudoModal((password) => {
+                const statusDiv = document.getElementById('desktop-status');
+                statusDiv.style.display = 'block';
+                statusDiv.innerHTML = '<div class="loading-spinner"></div> Eliminando UTPyApps...';
+                
+                fetch(`/_app/adb_manager/api/device/${deviceId}/remove-utpyapps`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sudo_password: password })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        statusDiv.innerHTML = `<div style="color: #00ff00;">✅ ${data.message}</div>`;
+                        setTimeout(() => {
+                            location.reload();
+                        }, 2000);
+                    } else {
+                        statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                    }
+                })
+                .catch(error => {
+                    statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
+                });
             });
         }
 

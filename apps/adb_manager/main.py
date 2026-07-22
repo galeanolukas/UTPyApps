@@ -1206,7 +1206,7 @@ if __name__ == '__main__':
     
     @staticmethod
     def check_environment_status(device_id):
-        """Verificar el estado del entorno de desarrollo en el dispositivo"""
+        """Verificar el estado del entorno de desarrollo en el dispositivo con múltiples métodos"""
         try:
             env_path = '/home/phablet/utpyapps'
             venv_path = '/home/phablet/utpyapps/venv'
@@ -1226,20 +1226,65 @@ if __name__ == '__main__':
                     print(f"[ENV CHECK] cmd='{test_cmd}' ERROR: {e}")
                     return False
             
-            # Etapa 1: Verificar directorio principal
-            stage1_exists = adb_test(f'test -d {env_path}')
+            def adb_python_test(code):
+                """Ejecutar código Python en dispositivo para verificación más confiable"""
+                try:
+                    full_cmd = ['adb', '-s', device_id, 'shell', f'python3 -c "{code}"']
+                    r = subprocess.run(full_cmd, capture_output=True, text=True, timeout=10)
+                    # Si returncode es 0 y la salida contiene "True", existe
+                    if r.returncode == 0 and 'True' in r.stdout:
+                        print(f"[ENV CHECK PYTHON] code='{code}' result=True")
+                        return True
+                    print(f"[ENV CHECK PYTHON] code='{code}' result=False rc={r.returncode} stdout='{r.stdout.strip()}'")
+                    return False
+                except Exception as e:
+                    print(f"[ENV CHECK PYTHON] code='{code}' ERROR: {e}")
+                    return False
+            
+            def adb_ls_test(path):
+                """Usar ls para verificar existencia (método alternativo)"""
+                try:
+                    full_cmd = ['adb', '-s', device_id, 'shell', f'ls -d {path} 2>/dev/null']
+                    r = subprocess.run(full_cmd, capture_output=True, text=True, timeout=10)
+                    # Si la salida contiene la ruta, existe
+                    exists = r.returncode == 0 and path in r.stdout
+                    print(f"[ENV CHECK LS] path='{path}' rc={r.returncode} stdout='{r.stdout.strip()}' exists={exists}")
+                    return exists
+                except Exception as e:
+                    print(f"[ENV CHECK LS] path='{path}' ERROR: {e}")
+                    return False
+            
+            # Etapa 1: Verificar directorio principal (múltiples métodos)
+            stage1_test1 = adb_test(f'test -d {env_path}')
+            stage1_test2 = adb_ls_test(env_path)
+            stage1_test3 = adb_python_test(f'import os; print(os.path.isdir("{env_path}"))')
+            # Usar consenso: si al menos 2 métodos dicen que existe, existe
+            stage1_exists = sum([stage1_test1, stage1_test2, stage1_test3]) >= 2
             results.append({
                 'stage': 1,
                 'description': 'Directorio principal /home/phablet/utpyapps',
                 'status': 'completed' if stage1_exists else 'pending',
-                'exists': stage1_exists
+                'exists': stage1_exists,
+                'methods': {'test': stage1_test1, 'ls': stage1_test2, 'python': stage1_test3}
             })
+            
+            # Si el directorio principal no existe, no verificar el resto
+            if not stage1_exists:
+                return True, {
+                    'message': 'Directorio principal no encontrado',
+                    'completed': 0,
+                    'total': 6,
+                    'percentage': 0,
+                    'is_complete': False,
+                    'results': results
+                }
             
             # Etapa 2: Verificar directorios copiados
             dirs_to_check = ['apps', 'static', 'templates']
             stage2_complete = True
             for dir_name in dirs_to_check:
-                if not adb_test(f'test -d {env_path}/{dir_name}'):
+                dir_path = f'{env_path}/{dir_name}'
+                if not adb_test(f'test -d {dir_path}'):
                     stage2_complete = False
             results.append({
                 'stage': 2,
@@ -1312,6 +1357,7 @@ if __name__ == '__main__':
         4. Instalar pip dentro del venv y luego instalar requirements (sin sudo)
         5. Copiar main.py completo con sistema de montado dinámico
         6. Generar requirements.txt dinámico desde app.json de todas las apps
+        7. Generar archivos .desktop para el launcher de Ubuntu Touch
         """
         try:
             results = []
@@ -1881,6 +1927,17 @@ if __name__ == '__main__':
                     'error': push_script.stderr
                 })
             
+            # Etapa 10: Generar archivos .desktop para el launcher
+            desktop_success, desktop_result = ADBManager.generate_desktop_files(device_id, local_apps_dir)
+            results.append({
+                'stage': 10,
+                'description': 'Generar archivos .desktop para el launcher de Ubuntu Touch',
+                'command': 'generate_desktop_files',
+                'success': desktop_success,
+                'output': str(desktop_result) if desktop_success else desktop_result,
+                'error': desktop_result if not desktop_success else None
+            })
+            
             return True, {
                 'message': 'Entorno configurado exitosamente con estructura copiada desde local',
                 'env_path': env_path,
@@ -1897,9 +1954,6 @@ if __name__ == '__main__':
     def generate_desktop_files(device_id, local_apps_dir=None):
         """Generar archivos .desktop para las apps en el launcher de Ubuntu Touch"""
         try:
-            if not local_apps_dir:
-                local_apps_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'apps')
-            
             apps_dir = '/home/phablet/utpyapps/apps'
             desktop_dir = '/home/phablet/.local/share/applications'
             icon_dir = '/home/phablet/.local/share/icons'
@@ -1910,21 +1964,45 @@ if __name__ == '__main__':
             mkdir_cmd = ['adb', '-s', device_id, 'shell', f'mkdir -p {desktop_dir} {icon_dir}']
             subprocess.run(mkdir_cmd, capture_output=True, text=True, timeout=10)
             
-            # Leer apps locales
-            if not os.path.exists(local_apps_dir):
-                return False, "Directorio de apps local no encontrado"
+            # Verificar que el directorio de apps existe en el dispositivo
+            check_apps_cmd = ['adb', '-s', device_id, 'shell', f'test -d {apps_dir}']
+            check_result = subprocess.run(check_apps_cmd, capture_output=True, text=True, timeout=10)
             
-            for app_folder in os.listdir(local_apps_dir):
-                app_path = os.path.join(local_apps_dir, app_folder)
-                if not os.path.isdir(app_path):
+            if check_result.returncode != 0:
+                return False, "Directorio de apps no encontrado en el dispositivo"
+            
+            # Listar apps en el dispositivo
+            ls_apps_cmd = ['adb', '-s', device_id, 'shell', f'ls {apps_dir}']
+            ls_result = subprocess.run(ls_apps_cmd, capture_output=True, text=True, timeout=10)
+            
+            if ls_result.returncode != 0:
+                return False, "Error listando apps en el dispositivo"
+            
+            app_folders = ls_result.stdout.strip().split('\n')
+            
+            for app_folder in app_folders:
+                if not app_folder or app_folder.startswith('.'):
                     continue
                 
-                manifest_path = os.path.join(app_path, 'app.json')
-                if not os.path.exists(manifest_path):
+                # Verificar que tenga app.json
+                manifest_path = f'{apps_dir}/{app_folder}/app.json'
+                check_manifest_cmd = ['adb', '-s', device_id, 'shell', f'test -f {manifest_path}']
+                check_manifest_result = subprocess.run(check_manifest_cmd, capture_output=True, text=True, timeout=10)
+                
+                if check_manifest_result.returncode != 0:
                     continue
                 
-                with open(manifest_path) as f:
-                    manifest = json.load(f)
+                # Leer el contenido de app.json desde el dispositivo
+                cat_manifest_cmd = ['adb', '-s', device_id, 'shell', f'cat {manifest_path}']
+                cat_result = subprocess.run(cat_manifest_cmd, capture_output=True, text=True, timeout=10)
+                
+                if cat_result.returncode != 0:
+                    continue
+                
+                try:
+                    manifest = json.loads(cat_result.stdout)
+                except json.JSONDecodeError:
+                    continue
                 
                 if manifest.get('hidden', False):
                     continue
@@ -1957,13 +2035,17 @@ X-Lomiri-Touch=true
                 
                 os.remove(temp_desktop)
                 
-                # Copiar icono si existe
+                # Copiar icono si existe en el dispositivo
                 if app_icon:
-                    local_icon = os.path.join(app_path, app_icon)
-                    if os.path.exists(local_icon):
-                        remote_icon = f'{icon_dir}/utpyapps-{app_folder}.png'
-                        icon_cmd = ['adb', '-s', device_id, 'push', local_icon, remote_icon]
-                        icon_result = subprocess.run(icon_cmd, capture_output=True, text=True, timeout=30)
+                    remote_icon_source = f'{apps_dir}/{app_folder}/static/{app_icon}'
+                    check_icon_cmd = ['adb', '-s', device_id, 'shell', f'test -f {remote_icon_source}']
+                    check_icon_result = subprocess.run(check_icon_cmd, capture_output=True, text=True, timeout=10)
+                    
+                    if check_icon_result.returncode == 0:
+                        remote_icon_dest = f'{icon_dir}/utpyapps-{app_folder}.png'
+                        # Usar adb shell cp para copiar el icono dentro del dispositivo
+                        cp_icon_cmd = ['adb', '-s', device_id, 'shell', f'cp {remote_icon_source} {remote_icon_dest}']
+                        icon_result = subprocess.run(cp_icon_cmd, capture_output=True, text=True, timeout=30)
                 
                 results.append({
                     'app': app_folder,
@@ -1972,12 +2054,100 @@ X-Lomiri-Touch=true
                     'success': push_result.returncode == 0
                 })
             
+            # Crear launcher principal para UTPyApps
+            utpyapps_desktop_content = '''[Desktop Entry]
+Version=1.0
+Name=UTPyApps
+Comment=Meta-lanzador para Ubuntu Touch
+Exec=bash /home/phablet/utpyapps/utpyapps.sh
+Icon=utpyapps
+Terminal=false
+Type=Application
+Categories=Utility;
+X-Lomiri-Touch=true
+'''
+            temp_utpyapps = '/tmp/utpyapps.desktop'
+            with open(temp_utpyapps, 'w') as f:
+                f.write(utpyapps_desktop_content)
+            
+            utpyapps_desktop_file = f'{desktop_dir}/utpyapps.desktop'
+            push_utpyapps_cmd = ['adb', '-s', device_id, 'push', temp_utpyapps, utpyapps_desktop_file]
+            push_utpyapps_result = subprocess.run(push_utpyapps_cmd, capture_output=True, text=True, timeout=30)
+            
+            os.remove(temp_utpyapps)
+            
+            results.append({
+                'app': 'utpyapps',
+                'name': 'UTPyApps',
+                'desktop_file': utpyapps_desktop_file,
+                'success': push_utpyapps_result.returncode == 0
+            })
+            
+            # Reiniciar unity8 para que el launcher detecte los nuevos archivos .desktop
+            restart_cmd = ['adb', '-s', device_id, 'shell', 'initctl restart unity8']
+            restart_result = subprocess.run(restart_cmd, capture_output=True, text=True, timeout=30)
+            results.append({
+                'action': 'restart_unity8',
+                'success': restart_result.returncode == 0,
+                'result': restart_result.stdout
+            })
+            
             return True, {
-                'message': f'Archivos .desktop generados para {len(results)} apps',
+                'message': f'Archivos .desktop generados para {len(results)-1} apps. Unity8 reiniciado para actualizar el launcher.',
                 'results': results
             }
         except Exception as e:
             return False, f"Error generando archivos .desktop: {str(e)}"
+    
+    @staticmethod
+    def remove_utpyapps(device_id, sudo_password=None):
+        """Eliminar completamente UTPyApps del dispositivo (directorio y archivos .desktop)"""
+        try:
+            base_dir = '/home/phablet/utpyapps'
+            desktop_dir = '/home/phablet/.local/share/applications'
+            icon_dir = '/home/phablet/.local/share/icons'
+            
+            results = []
+            
+            # Eliminar directorio utpyapps
+            rm_cmd = ['adb', '-s', device_id, 'shell', f'rm -rf {base_dir}']
+            if sudo_password:
+                rm_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S rm -rf {base_dir}']
+            rm_result = subprocess.run(rm_cmd, capture_output=True, text=True, timeout=30)
+            results.append({
+                'action': 'remove_utpyapps_dir',
+                'success': rm_result.returncode == 0,
+                'result': rm_result.stdout
+            })
+            
+            # Eliminar archivos .desktop de UTPyApps (incluyendo el principal)
+            rm_desktop_cmd = ['adb', '-s', device_id, 'shell', f'rm -f {desktop_dir}/utpyapps-*.desktop {desktop_dir}/utpyapps.desktop']
+            if sudo_password:
+                rm_desktop_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S rm -f {desktop_dir}/utpyapps-*.desktop {desktop_dir}/utpyapps.desktop']
+            rm_desktop_result = subprocess.run(rm_desktop_cmd, capture_output=True, text=True, timeout=30)
+            results.append({
+                'action': 'remove_desktop_files',
+                'success': rm_desktop_result.returncode == 0,
+                'result': rm_desktop_result.stdout
+            })
+            
+            # Eliminar iconos de UTPyApps
+            rm_icons_cmd = ['adb', '-s', device_id, 'shell', f'rm -f {icon_dir}/utpyapps-*.png']
+            if sudo_password:
+                rm_icons_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S rm -f {icon_dir}/utpyapps-*.png']
+            rm_icons_result = subprocess.run(rm_icons_cmd, capture_output=True, text=True, timeout=30)
+            results.append({
+                'action': 'remove_icons',
+                'success': rm_icons_result.returncode == 0,
+                'result': rm_icons_result.stdout
+            })
+            
+            return True, {
+                'message': 'UTPyApps eliminado completamente del dispositivo',
+                'results': results
+            }
+        except Exception as e:
+            return False, f"Error eliminando UTPyApps: {str(e)}"
     
     @staticmethod
     def check_venv_status(device_id, venv_path='/home/phablet/.ubtool/venv'):
@@ -2412,9 +2582,9 @@ def api_check_environment(request, device_id):
     try:
         success, result = ADBManager.check_environment_status(device_id)
         if success:
-            return Response(result, headers={'Content-Type': 'application/json'})
+            return Response(json.dumps(result), headers={'Content-Type': 'application/json'})
         else:
-            return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
+            return Response(json.dumps({'error': result}), status_code=500, headers={'Content-Type': 'application/json'})
     except Exception as e:
         print(f"Error en api_check_environment: {str(e)}")
         import traceback
@@ -2435,6 +2605,24 @@ def api_generate_desktop(request, device_id):
             return Response(json.dumps({'success': False, 'error': result}), status_code=500, headers={'Content-Type': 'application/json'})
     except Exception as e:
         print(f"Error en api_generate_desktop: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response(json.dumps({'success': False, 'error': f'Error interno: {str(e)}'}), status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/device/<device_id>/remove-utpyapps', methods=['POST'])
+def api_remove_utpyapps(request, device_id):
+    """API endpoint para eliminar completamente UTPyApps del dispositivo"""
+    try:
+        data = request.json
+        sudo_password = data.get('sudo_password')
+        
+        success, result = ADBManager.remove_utpyapps(device_id, sudo_password)
+        if success:
+            return Response(json.dumps({'success': True, 'message': result}), headers={'Content-Type': 'application/json'})
+        else:
+            return Response(json.dumps({'success': False, 'error': result}), status_code=500, headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        print(f"Error en api_remove_utpyapps: {str(e)}")
         import traceback
         traceback.print_exc()
         return Response(json.dumps({'success': False, 'error': f'Error interno: {str(e)}'}), status_code=500, headers={'Content-Type': 'application/json'})
