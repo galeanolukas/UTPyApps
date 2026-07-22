@@ -419,6 +419,143 @@ async def ver_app(request, nombre):
     html_content = render_template('app_detail.html', app=app_data)
     return Response(html_content, headers={'Content-Type': 'text/html; charset=utf-8'})
 
+@app.route('/crear', methods=['GET', 'POST'])
+async def crear_app(request):
+    """Crear una nueva app"""
+    if request.method == 'POST':
+        nombre = request.form.get('nombre')
+        descripcion = request.form.get('descripcion')
+        
+        # Crear estructura básica
+        app_folder = os.path.join(APPS_DIR, nombre.lower().replace(' ', '_'))
+        os.makedirs(app_folder)
+        
+        # Crear app.json simple
+        app_manifest = {
+            'name': nombre,
+            'description': descripcion,
+            'author': 'Usuario',
+            'version': '1.0'
+        }
+        with open(os.path.join(app_folder, 'app.json'), 'w') as f:
+            json.dump(app_manifest, f, indent=2)
+        
+        # Crear main.py simple
+        app_name_clean = nombre.lower().replace(' ', '_')
+        main_template = f"""# {nombre} - App para UTPyApps
+# Name: {nombre}
+# Description: {descripcion or 'App creada con UTPyApps'}
+# Author: Usuario
+# Version: 1.0
+
+from microdot import Microdot, Response
+from jinja2 import Environment, FileSystemLoader
+import os
+
+# Crear aplicación Microdot
+app = Microdot()
+Response.default_content_type = 'text/html'
+
+# Configurar templates para esta app
+TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), 'templates')
+app_env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
+
+@app.route('/')
+def home(request):
+    \"\"\"Página principal de la app\"\"\"
+    template = app_env.get_template('index.html')
+    html_content = template.render(
+        app_name='{nombre}',
+        app_description='{descripcion or "App creada con UTPyApps"}'
+    )
+    return Response(html_content)
+
+# Agrega tus propios endpoints aquí:
+# @app.route('/api/mi_endpoint')
+# def mi_endpoint(request):
+#     return Response({{
+#         'message': 'Hola desde mi endpoint!',
+#         'app': '{nombre}'
+#     }}, headers={{'Content-Type': 'application/json'}})
+"""
+        
+        with open(os.path.join(app_folder, 'main.py'), 'w') as f:
+            f.write(main_template)
+        
+        # Crear estructura de carpetas para la app
+        templates_dir = os.path.join(app_folder, 'templates')
+        os.makedirs(templates_dir, exist_ok=True)
+        
+        # Crear carpeta static para la app
+        static_dir = os.path.join(app_folder, 'static')
+        os.makedirs(static_dir, exist_ok=True)
+        
+        # Crear CSS personalizado para la app
+        css_content = f"""/* Estilos para {nombre} */
+body {{
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f5f5f5;
+}}
+.container {{
+    max-width: 800px;
+    margin: 0 auto;
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}}
+.header {{
+    text-align: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e0e0e0;
+}}
+.notice {{
+    background: #e8f4fd;
+    border: 1px solid #bee5eb;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 20px 0;
+    color: #0c5460;
+}}
+"""
+        with open(os.path.join(static_dir, 'style.css'), 'w') as f:
+            f.write(css_content)
+        
+        # Crear template index.html simple
+        index_template = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{{{ app_name }}}}</title>
+    <link rel="stylesheet" href="/_app/{app_name_clean}/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{{{ app_name }}}}</h1>
+            <p>{{{{ app_description }}}}</p>
+        </div>
+        <div class="notice">
+            <h2>¡Bienvenido a tu nueva app!</h2>
+            <p>Esta app fue creada con UTPyApps. Puedes editar los archivos para personalizarla.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        with open(os.path.join(templates_dir, 'index.html'), 'w') as f:
+            f.write(index_template)
+        
+        return Response(json.dumps({'success': True, 'message': f'App {nombre} creada exitosamente'}), headers={'Content-Type': 'application/json'})
+    
+    # GET request - mostrar formulario de creación
+    html_content = render_template('crear_app.html')
+    return Response(html_content, headers={'Content-Type': 'text/html; charset=utf-8'})
+
 # Code Editor Routes
 @app.route('/editor/<app_name>')
 def editor_page(request, app_name):
@@ -1801,11 +1938,12 @@ if __name__ == '__main__':
 Version=1.0
 Name={app_name}
 Comment={app_description}
-Exec=utpyapps.sh {app_folder}
+Exec=morph-browser --new-window http://localhost:8080/_app/{app_folder}/
 Icon=utpyapps-{app_folder}
 Terminal=false
 Type=Application
 Categories=Utility;
+X-Lomiri-Touch=true
 '''
                 # Crear archivo temporal
                 temp_desktop = f'/tmp/utpyapps_{app_folder}.desktop'
@@ -2285,18 +2423,18 @@ def api_check_environment(request, device_id):
 
 @app.route('/api/device/<device_id>/generate-desktop', methods=['POST'])
 def api_generate_desktop(request, device_id):
-    """API endpoint para generar archivos .desktop en el launcher de Ubuntu Touch"""
+    """API endpoint para Fase 5: Generar archivos .desktop en el launcher de Ubuntu Touch"""
     try:
         data = request.json
-        local_apps_dir = data.get('local_apps_dir')
+        local_apps_dir = data.get('local_apps_dir', '/media/lukas/ARCHIVOS/GitHub/ubpyapps')
         
         success, result = ADBManager.generate_desktop_files(device_id, local_apps_dir)
         if success:
-            return Response(result, headers={'Content-Type': 'application/json'})
+            return Response(json.dumps({'success': True, 'message': result}), headers={'Content-Type': 'application/json'})
         else:
-            return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
+            return Response(json.dumps({'success': False, 'error': result}), status_code=500, headers={'Content-Type': 'application/json'})
     except Exception as e:
         print(f"Error en api_generate_desktop: {str(e)}")
         import traceback
         traceback.print_exc()
-        return Response({'error': f'Error interno: {str(e)}'}, status_code=500, headers={'Content-Type': 'application/json'})
+        return Response(json.dumps({'success': False, 'error': f'Error interno: {str(e)}'}), status_code=500, headers={'Content-Type': 'application/json'})
