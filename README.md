@@ -14,6 +14,10 @@ UTPyApps es un meta-lanzador que proporciona infraestructura para crear y ejecut
 - **Routing Automático**: URLs del tipo `/_app/<nombre>/*`
 - **Estructura Estándar**: `main.py`, `templates/`, `static/` por app
 - **Metadatos en Comentarios**: Sistema de configuración estilo MicroKiOS
+- **ADB Manager**: Gestión de dispositivos Ubuntu Touch vía ADB
+- **Lanzador Universal**: Script `utpyapps.sh` compatible con Linux y Ubuntu Touch
+- **Editor de Código**: Editor web integrado para modificar apps
+- **Archivos .desktop**: Generación automática de accesos en el launcher de Ubuntu Touch
 
 ## 📁 Estructura del Proyecto
 
@@ -21,7 +25,12 @@ UTPyApps es un meta-lanzador que proporciona infraestructura para crear y ejecut
 utpyapps/
 ├── main.py              # Servidor principal (Microdot + Jinja2)
 ├── requirements.txt     # Dependencias Python
+├── utpyapps.sh          # Lanzador universal (Linux + Ubuntu Touch)
 ├── apps/               # Directorio de aplicaciones
+│   ├── adb_manager/    # App de gestión ADB
+│   │   ├── main.py     # Gestión de dispositivos y entorno
+│   │   └── templates/
+│   │       └── index.html
 │   └── hola_mundo/     # App de ejemplo
 │       ├── main.py     # Código Microdot de la app
 │       ├── app.json    # Metadatos y configuración
@@ -31,20 +40,19 @@ utpyapps/
 │   ├── base_layout.html
 │   ├── index.html     # Dashboard principal
 │   ├── create_app.html
-│   └── app_view.html
+│   ├── app_view.html
+│   └── editor.html    # Editor de código integrado
 └── static/             # Archivos estáticos
     ├── css/
     │   ├── w3.css     # Framework CSS
-    │   └── common.css  # Estilos adicionales
+    │   ├── common.css  # Estilos adicionales
+    │   └── editor.css  # Estilos del editor
     ├── js/
-    │   └── common.js  # Funciones comunes
+    │   ├── common.js  # Funciones comunes
+    │   ├── editor.js  # Funciones del editor
+    │   └── codemirror/  # Editor de código
     └── images/
-        └── logo.png       # Logo por defecto
-    ├── base_layout.html
-    ├── index.html
-    ├── create_app.html
-    ├── app_view.html   # Para apps antiguas
-    └── app_index.html # Template para nuevas apps
+        └── logo.png   # Logo por defecto
 ```
 
 ## 🛠️ Instalación y Ejecución
@@ -70,7 +78,13 @@ pip install -r requirements.txt
 
 ### Ejecución
 ```bash
+# Método 1: Directo con Python
 python3 main.py
+
+# Método 2: Usando el lanzador universal
+./utpyapps.sh          # Inicia servidor y abre home
+./utpyapps.sh apps1    # Inicia servidor y abre app específica
+./utpyapps.sh --stop   # Detiene el servidor
 ```
 
 El servidor iniciará en: `http://localhost:8080`
@@ -557,11 +571,132 @@ Este proyecto está bajo la Licencia MIT.
 - **JSON fallback**: `app.json` para configuración adicional
 - **Auto-descubrimiento**: Información de versión y autor
 
-## 🚀 Roadmap
+## � ADB Manager
+
+ADB Manager es una app integrada para gestionar dispositivos Ubuntu Touch vía ADB.
+
+### Características
+- **Detección de dispositivos**: Muestra dispositivos conectados con estado
+- **Configuración de entorno**: Configura automáticamente el entorno de desarrollo en el dispositivo
+- **Verificación de estado**: Muestra el estado de las 6 etapas de configuración
+- **Copia de apps**: Copia apps desde el sistema local al dispositivo
+- **Control de UTPyApps**: Iniciar, detener y ver logs de UTPyApps en el dispositivo
+- **Shell integrado**: Ejecutar comandos en el dispositivo
+- **Acciones rápidas**: Screenshot, reiniciar, obtener IP, abrir apps nativas
+
+### Uso
+1. Conecta tu dispositivo Ubuntu Touch vía USB
+2. Activa ADB en el dispositivo (Configuración > Desarrollador > Depuración ADB)
+3. Abre `http://localhost:8080/_app/adb_manager/`
+4. El dispositivo aparecerá automáticamente
+5. Usa "Configurar Entorno" para preparar el dispositivo
+6. Usa "Generar Accesos Launcher" para crear accesos en el launcher de Ubuntu Touch
+
+### Configuración de Entorno
+El proceso de configuración incluye:
+1. Crear directorio `/home/phablet/utpyapps`
+2. Copiar directorios `apps/`, `static/`, `templates/`
+3. Crear entorno virtual con `python3 -m venv`
+4. Instalar pip en el venv
+5. Generar `requirements.txt` dinámico
+6. Crear `main.py` con sistema de montado dinámico
+7. Copiar `utpyapps.sh` (lanzador universal)
+8. Instalar requirements desde `requirements.txt`
+
+## 🚀 utpyapps.sh - Lanzador Universal
+
+`utpyapps.sh` es un script bash compatible con Linux y Ubuntu Touch que simplifica el lanzamiento de UTPyApps.
+
+### Características
+- **Detección automática**: Detecta si corre en desktop o dispositivo
+- **Gestión de procesos**: Inicia/detiene el servidor con control de PID
+- **Apertura de navegador**: Abre automáticamente la URL correcta
+- **Soporte de apps**: Lanza apps específicas por nombre
+- **Plataforma cruzada**: Funciona en Linux y Ubuntu Touch
+
+### Uso
+```bash
+# Iniciar servidor y abrir home
+./utpyapps.sh
+
+# Iniciar servidor y abrir app específica
+./utpyapps.sh apps1
+
+# Detener servidor
+./utpyapps.sh --stop
+
+# Ver estado del servidor
+./utpyapps.sh --status
+
+# Mostrar ayuda
+./utpyapps.sh --help
+```
+
+### En Ubuntu Touch
+En el dispositivo, el script se copia a `~/utpyapps/utpyapps.sh` durante la configuración del entorno. Los archivos `.desktop` generados usan este script como `Exec` para lanzar apps desde el launcher.
+
+## ✏️ Editor de Código
+
+UTPyApps incluye un editor de código web integrado para modificar apps directamente desde el navegador.
+
+### Características
+- **Explorador de archivos**: Lista todos los archivos de una app
+- **Edición en vivo**: Modifica archivos con resaltado de sintaxis (CodeMirror)
+- **Guardado automático**: Guarda cambios con un clic
+- **Eliminación de archivos**: Elimina archivos no esenciales
+- **Seguridad**: Validación de rutas para evitar accesos no permitidos
+
+### Uso
+1. Abre el dashboard en `http://localhost:8080`
+2. Haz clic en "Editar" en la tarjeta de una app
+3. El editor mostrará todos los archivos de la app
+4. Haz clic en un archivo para editarlo
+5. Haz clic en "Guardar" para aplicar cambios
+
+### Rutas del Editor
+- **Ver editor**: `GET /editor/<app_name>`
+- **Listar archivos**: `GET /api/editor/<app_name>/files`
+- **Leer archivo**: `GET /api/editor/<app_name>/file?filename=<path>`
+- **Guardar archivo**: `POST /api/editor/<app_name>/file?filename=<path>`
+- **Eliminar archivo**: `DELETE /api/editor/<app_name>/file?filename=<path>`
+
+## 📱 Archivos .desktop para Ubuntu Touch
+
+UTPyApps puede generar automáticamente archivos `.desktop` para que las apps aparezcan en el launcher de Ubuntu Touch.
+
+### Generación
+1. Abre ADB Manager en `http://localhost:8080/_app/adb_manager/`
+2. Haz clic en "📱 Generar Accesos Launcher"
+3. Los archivos `.desktop` se crean en `~/.local/share/applications/` del dispositivo
+4. Los iconos se copian a `~/.local/share/icons/`
+
+### Estructura del .desktop
+```ini
+[Desktop Entry]
+Version=1.0
+Name=Nombre de la App
+Comment=Descripción de la app
+Exec=utpyapps.sh nombre_app
+Icon=utpyapps-nombre_app
+Terminal=false
+Type=Application
+Categories=Utility;
+```
+
+### Requisitos
+- El dispositivo debe tener UTPyApps configurado (incluyendo `utpyapps.sh`)
+- Las apps deben tener `app.json` con metadatos válidos
+- Los iconos opcionales se especifican en `app.json` con el campo `icon`
+
+## �🚀 Roadmap
 
 - [x] **Arquitectura MicroKiOS** - Estructura estándar implementada
 - [x] **Ubuntu Touch Styling** - Diseño nativo completo
 - [x] **Mounting Dinámico** - Sistema de apps automático
+- [x] **ADB Manager** - Gestión de dispositivos Ubuntu Touch
+- [x] **Lanzador Universal** - Script utpyapps.sh
+- [x] **Editor de Código** - Editor web integrado
+- [x] **Archivos .desktop** - Generación de accesos en launcher
 - [ ] Sistema de plugins y extensiones
 - [ ] Gestor de paquetes de apps
 - [ ] Temas personalizables adicionales
