@@ -274,6 +274,10 @@
                             <button onclick="setupEnvironment('{{ devices[0].id }}')" class="btn-action btn-primary" style="width: 100%;">⚙️ Configurar Entorno</button>
                         </div>
                         {% endif %}
+                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                            <button onclick="generateDesktopFiles('{{ devices[0].id }}')" class="btn-action" style="width: 100%;">📱 Generar Accesos Launcher</button>
+                        </div>
+                        <div id="desktop-status" class="terminal-output" style="display: none; margin-top: 12px;"></div>
                     </div>
                 </div>
                 {% endif %}
@@ -830,6 +834,41 @@
                 .catch(error => {
                     statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
                 });
+            });
+        }
+
+        function generateDesktopFiles(deviceId) {
+            const statusDiv = document.getElementById('desktop-status');
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<div class="loading-spinner"></div> Generando archivos .desktop...';
+            
+            fetch(`/_app/adb_manager/api/device/${deviceId}/generate-desktop`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${data.error}</div>`;
+                } else {
+                    let html = `<div style="color: #00ff00;">✅ ${data.message}</div>`;
+                    if (data.results) {
+                        html += '<div style="margin-top: 8px; font-size: 11px;">';
+                        data.results.forEach(result => {
+                            const icon = result.success ? '✅' : '❌';
+                            html += `<div>${icon} ${result.name} (${result.app})</div>`;
+                        });
+                        html += '</div>';
+                    }
+                    html += '<div style="margin-top: 8px; font-size: 11px; color: #888;">';
+                    html += 'Los accesos aparecerán en el launcher de Ubuntu Touch.';
+                    html += '</div>';
+                    statusDiv.innerHTML = html;
+                }
+            })
+            .catch(error => {
+                statusDiv.innerHTML = `<div style="color: #e74c3c;">Error: ${error.message}</div>`;
             });
         }
 

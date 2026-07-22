@@ -400,16 +400,155 @@ def cargar_apps():
                         apps.append(app_info)
     return apps
 
+def render_template(template_name, **context):
+    """Funcion helper para renderizar templates"""
+    template = env.get_template(template_name)
+    return template.render(**context)
+
 @app.route('/')
 async def index(request):
     """Dashboard principal"""
     apps = cargar_apps()
-    template = env.get_template('index.html')
-    return Response(template.render(apps=apps))
+    html_content = render_template('index.html', apps=apps)
+    return Response(html_content, headers={'Content-Type': 'text/html; charset=utf-8'})
+
+@app.route('/app/<nombre>')
+async def ver_app(request, nombre):
+    """Ver detalles de una app"""
+    app_data = cargar_app_manifest(nombre)
+    html_content = render_template('app_detail.html', app=app_data)
+    return Response(html_content, headers={'Content-Type': 'text/html; charset=utf-8'})
+
+# Code Editor Routes
+@app.route('/editor/<app_name>')
+def editor_page(request, app_name):
+    """Pagina del editor de codigo para una app"""
+    app_path = os.path.join(APPS_DIR, app_name)
+    if not os.path.exists(app_path):
+        return Response("App no encontrada", status_code=404)
+    html_content = render_template('editor.html', app_name=app_name)
+    return Response(html_content)
+
+@app.route('/api/editor/<app_name>/files')
+def get_app_files(request, app_name):
+    """Obtener lista de archivos de una app para el editor"""
+    app_path = os.path.join(APPS_DIR, app_name)
+    if not os.path.exists(app_path):
+        return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
+    files = []
+    for root, dirs, filenames in os.walk(app_path):
+        for filename in filenames:
+            if filename.startswith('.') or filename.endswith('.pyc'):
+                continue
+            file_path = os.path.join(root, filename)
+            relative_path = os.path.relpath(file_path, app_path)
+            try:
+                stat = os.stat(file_path)
+                files.append({
+                    'name': relative_path,
+                    'path': file_path,
+                    'size': stat.st_size,
+                    'modified': stat.st_mtime,
+                    'type': 'file'
+                })
+            except Exception as e:
+                print(f"Error getting file info for {file_path}: {e}")
+                continue
+    return Response(json.dumps(files), headers={'Content-Type': 'application/json'})
+
+@app.route('/api/editor/<app_name>/file')
+def get_file_content(request, app_name):
+    """Obtener contenido de un archivo para el editor"""
+    app_path = os.path.join(APPS_DIR, app_name)
+    filename = request.args.get('filename')
+    if not filename:
+        return Response(json.dumps({'error': 'Filename requerido'}), status_code=400, headers={'Content-Type': 'application/json'})
+    from urllib.parse import unquote
+    filename = unquote(filename)
+    file_path = os.path.join(app_path, filename)
+    try:
+        common_path = os.path.commonpath([app_path])
+        file_common_path = os.path.commonpath([app_path, file_path])
+        if common_path != file_common_path:
+            return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
+    except ValueError:
+        return Response(json.dumps({'error': 'Ruta invalida'}), status_code=400, headers={'Content-Type': 'application/json'})
+    if not os.path.exists(file_path) or not os.path.isfile(file_path):
+        return Response(json.dumps({'error': 'Archivo no encontrado'}), status_code=404, headers={'Content-Type': 'application/json'})
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return Response(content, headers={'Content-Type': 'text/plain'})
+    except UnicodeDecodeError:
+        return Response(json.dumps({'error': 'Archivo binario no soportado'}), status_code=400, headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        return Response(json.dumps({'error': f'Error leyendo archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/editor/<app_name>/file', methods=['POST'])
+def save_file_content(request, app_name):
+    """Guardar contenido de un archivo desde el editor"""
+    app_path = os.path.join(APPS_DIR, app_name)
+    if not os.path.exists(app_path):
+        return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
+    filename = request.args.get('filename')
+    if not filename:
+        return Response(json.dumps({'error': 'Filename requerido'}), status_code=400, headers={'Content-Type': 'application/json'})
+    from urllib.parse import unquote
+    filename = unquote(filename)
+    file_path = os.path.join(app_path, filename)
+    try:
+        common_path = os.path.commonpath([app_path])
+        file_common_path = os.path.commonpath([app_path, file_path])
+        if common_path != file_common_path:
+            return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
+    except ValueError:
+        return Response(json.dumps({'error': 'Ruta invalida'}), status_code=400, headers={'Content-Type': 'application/json'})
+    try:
+        content = request.json.get('content', '')
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        print(f"Archivo guardado: {app_name}/{filename}")
+        return Response(json.dumps({'success': True, 'message': 'Archivo guardado correctamente'}), headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        print(f"Error guardando archivo {filename}: {e}")
+        return Response(json.dumps({'error': f'Error guardando archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/editor/<app_name>/file', methods=['DELETE'])
+def delete_file(request, app_name):
+    """Eliminar un archivo desde el editor"""
+    app_path = os.path.join(APPS_DIR, app_name)
+    if not os.path.exists(app_path):
+        return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
+    filename = request.args.get('filename')
+    if not filename:
+        return Response(json.dumps({'error': 'Filename requerido'}), status_code=400, headers={'Content-Type': 'application/json'})
+    from urllib.parse import unquote
+    filename = unquote(filename)
+    file_path = os.path.join(app_path, filename)
+    try:
+        common_path = os.path.commonpath([app_path])
+        file_common_path = os.path.commonpath([app_path, file_path])
+        if common_path != file_common_path:
+            return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
+    except ValueError:
+        return Response(json.dumps({'error': 'Ruta invalida'}), status_code=400, headers={'Content-Type': 'application/json'})
+    if not os.path.exists(file_path):
+        return Response(json.dumps({'error': 'Archivo no encontrado'}), status_code=404, headers={'Content-Type': 'application/json'})
+    essential_files = ['main.py', 'app.json']
+    if filename in essential_files:
+        return Response(json.dumps({'error': f'No se puede eliminar el archivo esencial: {filename}'}), status_code=403, headers={'Content-Type': 'application/json'})
+    try:
+        os.remove(file_path)
+        print(f"Archivo eliminado: {app_name}/{filename}")
+        return Response(json.dumps({'success': True, 'message': 'Archivo eliminado correctamente'}), headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        print(f"Error eliminando archivo {filename}: {e}")
+        return Response(json.dumps({'error': f'Error eliminando archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
 
 @app.route('/static/<path:path>')
 async def static_files(request, path):
-    """Servir archivos estáticos globales"""
+    """Servir archivos estaticos globales"""
     static_root = os.path.abspath(STATIC_DIR)
     requested_path = os.path.abspath(os.path.join(static_root, path))
 
@@ -430,7 +569,7 @@ async def static_files(request, path):
 
 @app.route('/_app/<app_name>/static/<path:path>')
 async def app_static_files(request, app_name, path):
-    """Servir archivos estáticos de apps"""
+    """Servir archivos estaticos de apps"""
     app_static_root = os.path.abspath(os.path.join(APPS_DIR, app_name, 'static'))
     requested_path = os.path.abspath(os.path.join(app_static_root, path))
 
@@ -450,14 +589,14 @@ async def app_static_files(request, app_name, path):
     return Response(content, headers={'Content-Type': content_type})
 
 if __name__ == '__main__':
-    print("🚀 Iniciando UTPyApps en Ubuntu Touch")
-    print(f"📁 Base DIR: {BASE_DIR}")
-    print(f"📁 Apps DIR: {APPS_DIR}")
+    print("Iniciando UTPyApps en Ubuntu Touch")
+    print(f"Base DIR: {BASE_DIR}")
+    print(f"Apps DIR: {APPS_DIR}")
     
     # Montar todas las apps
     install_apps(app)
     
-    print(f"🌐 Servidor disponible en: http://0.0.0.0:8080")
+    print(f"Servidor disponible en: http://0.0.0.0:8080")
     app.run(host='0.0.0.0', port=8080)
 '''
             
@@ -937,10 +1076,21 @@ if __name__ == '__main__':
             
             results = []
             
+            def adb_test(test_cmd):
+                """Ejecutar test en dispositivo y retornar True/False"""
+                try:
+                    full_cmd = ['adb', '-s', device_id, 'shell', test_cmd]
+                    r = subprocess.run(full_cmd, capture_output=True, text=True, timeout=10)
+                    # Usar returncode directamente: 0 = existe, 1 = no existe
+                    exists = r.returncode == 0
+                    print(f"[ENV CHECK] cmd='{test_cmd}' rc={r.returncode} stdout='{r.stdout.strip()}' stderr='{r.stderr.strip()}' exists={exists}")
+                    return exists
+                except Exception as e:
+                    print(f"[ENV CHECK] cmd='{test_cmd}' ERROR: {e}")
+                    return False
+            
             # Etapa 1: Verificar directorio principal
-            stage1_cmd = ['adb', '-s', device_id, 'shell', f'test -d {env_path} && echo "EXISTS" || echo "NOT_EXISTS"']
-            stage1_result = subprocess.run(stage1_cmd, capture_output=True, text=True, timeout=10)
-            stage1_exists = 'EXISTS' in stage1_result.stdout
+            stage1_exists = adb_test(f'test -d {env_path}')
             results.append({
                 'stage': 1,
                 'description': 'Directorio principal /home/phablet/utpyapps',
@@ -952,9 +1102,7 @@ if __name__ == '__main__':
             dirs_to_check = ['apps', 'static', 'templates']
             stage2_complete = True
             for dir_name in dirs_to_check:
-                check_cmd = ['adb', '-s', device_id, 'shell', f'test -d {env_path}/{dir_name} && echo "EXISTS" || echo "NOT_EXISTS"']
-                check_result = subprocess.run(check_cmd, capture_output=True, text=True, timeout=10)
-                if 'EXISTS' not in check_result.stdout:
+                if not adb_test(f'test -d {env_path}/{dir_name}'):
                     stage2_complete = False
             results.append({
                 'stage': 2,
@@ -964,9 +1112,7 @@ if __name__ == '__main__':
             })
             
             # Etapa 3: Verificar entorno virtual
-            stage3_cmd = ['adb', '-s', device_id, 'shell', f'test -d {venv_path} && echo "EXISTS" || echo "NOT_EXISTS"']
-            stage3_result = subprocess.run(stage3_cmd, capture_output=True, text=True, timeout=10)
-            stage3_exists = 'EXISTS' in stage3_result.stdout
+            stage3_exists = adb_test(f'test -d {venv_path}')
             results.append({
                 'stage': 3,
                 'description': 'Entorno virtual creado',
@@ -975,9 +1121,7 @@ if __name__ == '__main__':
             })
             
             # Etapa 4: Verificar pip instalado
-            stage4_cmd = ['adb', '-s', device_id, 'shell', f'test -f {venv_path}/bin/pip && echo "EXISTS" || echo "NOT_EXISTS"']
-            stage4_result = subprocess.run(stage4_cmd, capture_output=True, text=True, timeout=10)
-            stage4_exists = 'EXISTS' in stage4_result.stdout
+            stage4_exists = adb_test(f'test -f {venv_path}/bin/pip')
             results.append({
                 'stage': 4,
                 'description': 'Pip instalado en el entorno virtual',
@@ -986,9 +1130,7 @@ if __name__ == '__main__':
             })
             
             # Etapa 5: Verificar requirements.txt
-            stage5_cmd = ['adb', '-s', device_id, 'shell', f'test -f {env_path}/requirements.txt && echo "EXISTS" || echo "NOT_EXISTS"']
-            stage5_result = subprocess.run(stage5_cmd, capture_output=True, text=True, timeout=10)
-            stage5_exists = 'EXISTS' in stage5_result.stdout
+            stage5_exists = adb_test(f'test -f {env_path}/requirements.txt')
             results.append({
                 'stage': 5,
                 'description': 'Requirements.txt generado',
@@ -997,9 +1139,7 @@ if __name__ == '__main__':
             })
             
             # Etapa 6: Verificar main.py
-            stage6_cmd = ['adb', '-s', device_id, 'shell', f'test -f {env_path}/main.py && echo "EXISTS" || echo "NOT_EXISTS"']
-            stage6_result = subprocess.run(stage6_cmd, capture_output=True, text=True, timeout=10)
-            stage6_exists = 'EXISTS' in stage6_result.stdout
+            stage6_exists = adb_test(f'test -f {env_path}/main.py')
             results.append({
                 'stage': 6,
                 'description': 'Main.py con sistema de montado dinámico',
@@ -1021,6 +1161,7 @@ if __name__ == '__main__':
                 'results': results
             }
         except Exception as e:
+            print(f"[ENV CHECK] Error general: {e}")
             return False, f"Error verificando entorno: {str(e)}"
     
     @staticmethod
@@ -1367,16 +1508,155 @@ def cargar_apps():
                         apps.append(app_info)
     return apps
 
+def render_template(template_name, **context):
+    """Funcion helper para renderizar templates"""
+    template = env.get_template(template_name)
+    return template.render(**context)
+
 @app.route('/')
 async def index(request):
     """Dashboard principal"""
     apps = cargar_apps()
-    template = env.get_template('index.html')
-    return Response(template.render(apps=apps))
+    html_content = render_template('index.html', apps=apps)
+    return Response(html_content, headers={'Content-Type': 'text/html; charset=utf-8'})
+
+@app.route('/app/<nombre>')
+async def ver_app(request, nombre):
+    """Ver detalles de una app"""
+    app_data = cargar_app_manifest(nombre)
+    html_content = render_template('app_detail.html', app=app_data)
+    return Response(html_content, headers={'Content-Type': 'text/html; charset=utf-8'})
+
+# Code Editor Routes
+@app.route('/editor/<app_name>')
+def editor_page(request, app_name):
+    """Pagina del editor de codigo para una app"""
+    app_path = os.path.join(APPS_DIR, app_name)
+    if not os.path.exists(app_path):
+        return Response("App no encontrada", status_code=404)
+    html_content = render_template('editor.html', app_name=app_name)
+    return Response(html_content)
+
+@app.route('/api/editor/<app_name>/files')
+def get_app_files(request, app_name):
+    """Obtener lista de archivos de una app para el editor"""
+    app_path = os.path.join(APPS_DIR, app_name)
+    if not os.path.exists(app_path):
+        return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
+    files = []
+    for root, dirs, filenames in os.walk(app_path):
+        for filename in filenames:
+            if filename.startswith('.') or filename.endswith('.pyc'):
+                continue
+            file_path = os.path.join(root, filename)
+            relative_path = os.path.relpath(file_path, app_path)
+            try:
+                stat = os.stat(file_path)
+                files.append({
+                    'name': relative_path,
+                    'path': file_path,
+                    'size': stat.st_size,
+                    'modified': stat.st_mtime,
+                    'type': 'file'
+                })
+            except Exception as e:
+                print(f"Error getting file info for {file_path}: {e}")
+                continue
+    return Response(json.dumps(files), headers={'Content-Type': 'application/json'})
+
+@app.route('/api/editor/<app_name>/file')
+def get_file_content(request, app_name):
+    """Obtener contenido de un archivo para el editor"""
+    app_path = os.path.join(APPS_DIR, app_name)
+    filename = request.args.get('filename')
+    if not filename:
+        return Response(json.dumps({'error': 'Filename requerido'}), status_code=400, headers={'Content-Type': 'application/json'})
+    from urllib.parse import unquote
+    filename = unquote(filename)
+    file_path = os.path.join(app_path, filename)
+    try:
+        common_path = os.path.commonpath([app_path])
+        file_common_path = os.path.commonpath([app_path, file_path])
+        if common_path != file_common_path:
+            return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
+    except ValueError:
+        return Response(json.dumps({'error': 'Ruta invalida'}), status_code=400, headers={'Content-Type': 'application/json'})
+    if not os.path.exists(file_path) or not os.path.isfile(file_path):
+        return Response(json.dumps({'error': 'Archivo no encontrado'}), status_code=404, headers={'Content-Type': 'application/json'})
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return Response(content, headers={'Content-Type': 'text/plain'})
+    except UnicodeDecodeError:
+        return Response(json.dumps({'error': 'Archivo binario no soportado'}), status_code=400, headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        return Response(json.dumps({'error': f'Error leyendo archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/editor/<app_name>/file', methods=['POST'])
+def save_file_content(request, app_name):
+    """Guardar contenido de un archivo desde el editor"""
+    app_path = os.path.join(APPS_DIR, app_name)
+    if not os.path.exists(app_path):
+        return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
+    filename = request.args.get('filename')
+    if not filename:
+        return Response(json.dumps({'error': 'Filename requerido'}), status_code=400, headers={'Content-Type': 'application/json'})
+    from urllib.parse import unquote
+    filename = unquote(filename)
+    file_path = os.path.join(app_path, filename)
+    try:
+        common_path = os.path.commonpath([app_path])
+        file_common_path = os.path.commonpath([app_path, file_path])
+        if common_path != file_common_path:
+            return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
+    except ValueError:
+        return Response(json.dumps({'error': 'Ruta invalida'}), status_code=400, headers={'Content-Type': 'application/json'})
+    try:
+        content = request.json.get('content', '')
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        print(f"Archivo guardado: {app_name}/{filename}")
+        return Response(json.dumps({'success': True, 'message': 'Archivo guardado correctamente'}), headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        print(f"Error guardando archivo {filename}: {e}")
+        return Response(json.dumps({'error': f'Error guardando archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/editor/<app_name>/file', methods=['DELETE'])
+def delete_file(request, app_name):
+    """Eliminar un archivo desde el editor"""
+    app_path = os.path.join(APPS_DIR, app_name)
+    if not os.path.exists(app_path):
+        return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
+    filename = request.args.get('filename')
+    if not filename:
+        return Response(json.dumps({'error': 'Filename requerido'}), status_code=400, headers={'Content-Type': 'application/json'})
+    from urllib.parse import unquote
+    filename = unquote(filename)
+    file_path = os.path.join(app_path, filename)
+    try:
+        common_path = os.path.commonpath([app_path])
+        file_common_path = os.path.commonpath([app_path, file_path])
+        if common_path != file_common_path:
+            return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
+    except ValueError:
+        return Response(json.dumps({'error': 'Ruta invalida'}), status_code=400, headers={'Content-Type': 'application/json'})
+    if not os.path.exists(file_path):
+        return Response(json.dumps({'error': 'Archivo no encontrado'}), status_code=404, headers={'Content-Type': 'application/json'})
+    essential_files = ['main.py', 'app.json']
+    if filename in essential_files:
+        return Response(json.dumps({'error': f'No se puede eliminar el archivo esencial: {filename}'}), status_code=403, headers={'Content-Type': 'application/json'})
+    try:
+        os.remove(file_path)
+        print(f"Archivo eliminado: {app_name}/{filename}")
+        return Response(json.dumps({'success': True, 'message': 'Archivo eliminado correctamente'}), headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        print(f"Error eliminando archivo {filename}: {e}")
+        return Response(json.dumps({'error': f'Error eliminando archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
 
 @app.route('/static/<path:path>')
 async def static_files(request, path):
-    """Servir archivos estáticos globales"""
+    """Servir archivos estaticos globales"""
     static_root = os.path.abspath(STATIC_DIR)
     requested_path = os.path.abspath(os.path.join(static_root, path))
 
@@ -1397,7 +1677,7 @@ async def static_files(request, path):
 
 @app.route('/_app/<app_name>/static/<path:path>')
 async def app_static_files(request, app_name, path):
-    """Servir archivos estáticos de apps"""
+    """Servir archivos estaticos de apps"""
     app_static_root = os.path.abspath(os.path.join(APPS_DIR, app_name, 'static'))
     requested_path = os.path.abspath(os.path.join(app_static_root, path))
 
@@ -1417,14 +1697,14 @@ async def app_static_files(request, app_name, path):
     return Response(content, headers={'Content-Type': content_type})
 
 if __name__ == '__main__':
-    print("🚀 Iniciando UTPyApps en Ubuntu Touch")
-    print(f"📁 Base DIR: {BASE_DIR}")
-    print(f"📁 Apps DIR: {APPS_DIR}")
+    print("Iniciando UTPyApps en Ubuntu Touch")
+    print(f"Base DIR: {BASE_DIR}")
+    print(f"Apps DIR: {APPS_DIR}")
     
     # Montar todas las apps
     install_apps(app)
     
-    print(f"🌐 Servidor disponible en: http://0.0.0.0:8080")
+    print(f"Servidor disponible en: http://0.0.0.0:8080")
     app.run(host='0.0.0.0', port=8080)
 '''
             
@@ -1447,6 +1727,23 @@ if __name__ == '__main__':
                 'error': push_result.stderr
             })
             
+            # Etapa 9: Copiar utpyapps.sh (lanzador)
+            local_script = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'utpyapps.sh')
+            if os.path.exists(local_script):
+                push_script = subprocess.run(['adb', '-s', device_id, 'push', local_script, f'{env_path}/utpyapps.sh'],
+                                             capture_output=True, text=True, timeout=30)
+                # Permisos de ejecucion
+                chmod_script = subprocess.run(['adb', '-s', device_id, 'shell', f'chmod +x {env_path}/utpyapps.sh'],
+                                              capture_output=True, text=True, timeout=10)
+                results.append({
+                    'stage': 9,
+                    'description': 'Copiar utpyapps.sh (lanzador)',
+                    'command': f'push utpyapps.sh a {env_path}/utpyapps.sh',
+                    'success': push_script.returncode == 0,
+                    'output': push_script.stdout,
+                    'error': push_script.stderr
+                })
+            
             return True, {
                 'message': 'Entorno configurado exitosamente con estructura copiada desde local',
                 'env_path': env_path,
@@ -1458,6 +1755,91 @@ if __name__ == '__main__':
             }
         except Exception as e:
             return False, f"Error configurando entorno: {str(e)}"
+    
+    @staticmethod
+    def generate_desktop_files(device_id, local_apps_dir=None):
+        """Generar archivos .desktop para las apps en el launcher de Ubuntu Touch"""
+        try:
+            if not local_apps_dir:
+                local_apps_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'apps')
+            
+            apps_dir = '/home/phablet/utpyapps/apps'
+            desktop_dir = '/home/phablet/.local/share/applications'
+            icon_dir = '/home/phablet/.local/share/icons'
+            
+            results = []
+            
+            # Crear directorios necesarios
+            mkdir_cmd = ['adb', '-s', device_id, 'shell', f'mkdir -p {desktop_dir} {icon_dir}']
+            subprocess.run(mkdir_cmd, capture_output=True, text=True, timeout=10)
+            
+            # Leer apps locales
+            if not os.path.exists(local_apps_dir):
+                return False, "Directorio de apps local no encontrado"
+            
+            for app_folder in os.listdir(local_apps_dir):
+                app_path = os.path.join(local_apps_dir, app_folder)
+                if not os.path.isdir(app_path):
+                    continue
+                
+                manifest_path = os.path.join(app_path, 'app.json')
+                if not os.path.exists(manifest_path):
+                    continue
+                
+                with open(manifest_path) as f:
+                    manifest = json.load(f)
+                
+                if manifest.get('hidden', False):
+                    continue
+                
+                app_name = manifest.get('name', app_folder)
+                app_description = manifest.get('description', '')
+                app_icon = manifest.get('icon', '')
+                
+                # Generar contenido del .desktop
+                desktop_content = f'''[Desktop Entry]
+Version=1.0
+Name={app_name}
+Comment={app_description}
+Exec=utpyapps.sh {app_folder}
+Icon=utpyapps-{app_folder}
+Terminal=false
+Type=Application
+Categories=Utility;
+'''
+                # Crear archivo temporal
+                temp_desktop = f'/tmp/utpyapps_{app_folder}.desktop'
+                with open(temp_desktop, 'w') as f:
+                    f.write(desktop_content)
+                
+                # Push al dispositivo
+                desktop_file = f'{desktop_dir}/utpyapps-{app_folder}.desktop'
+                push_cmd = ['adb', '-s', device_id, 'push', temp_desktop, desktop_file]
+                push_result = subprocess.run(push_cmd, capture_output=True, text=True, timeout=30)
+                
+                os.remove(temp_desktop)
+                
+                # Copiar icono si existe
+                if app_icon:
+                    local_icon = os.path.join(app_path, app_icon)
+                    if os.path.exists(local_icon):
+                        remote_icon = f'{icon_dir}/utpyapps-{app_folder}.png'
+                        icon_cmd = ['adb', '-s', device_id, 'push', local_icon, remote_icon]
+                        icon_result = subprocess.run(icon_cmd, capture_output=True, text=True, timeout=30)
+                
+                results.append({
+                    'app': app_folder,
+                    'name': app_name,
+                    'desktop_file': desktop_file,
+                    'success': push_result.returncode == 0
+                })
+            
+            return True, {
+                'message': f'Archivos .desktop generados para {len(results)} apps',
+                'results': results
+            }
+        except Exception as e:
+            return False, f"Error generando archivos .desktop: {str(e)}"
     
     @staticmethod
     def check_venv_status(device_id, venv_path='/home/phablet/.ubtool/venv'):
@@ -1897,6 +2279,24 @@ def api_check_environment(request, device_id):
             return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
     except Exception as e:
         print(f"Error en api_check_environment: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({'error': f'Error interno: {str(e)}'}, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/device/<device_id>/generate-desktop', methods=['POST'])
+def api_generate_desktop(request, device_id):
+    """API endpoint para generar archivos .desktop en el launcher de Ubuntu Touch"""
+    try:
+        data = request.json
+        local_apps_dir = data.get('local_apps_dir')
+        
+        success, result = ADBManager.generate_desktop_files(device_id, local_apps_dir)
+        if success:
+            return Response(result, headers={'Content-Type': 'application/json'})
+        else:
+            return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        print(f"Error en api_generate_desktop: {str(e)}")
         import traceback
         traceback.print_exc()
         return Response({'error': f'Error interno: {str(e)}'}, status_code=500, headers={'Content-Type': 'application/json'})
