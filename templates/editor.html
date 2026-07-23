@@ -15,6 +15,7 @@
         <div class="file-explorer-container" id="file-explorer-container">
             <div class="file-explorer-header">
                 <h3>📁 Archivos</h3>
+                <button class="close-sidebar-btn" onclick="toggleMobileMenu()" style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 5px;">✕</button>
             </div>
             <div class="file-explorer" id="file-explorer">
                 <!-- Files will be loaded here dynamically -->
@@ -109,6 +110,21 @@
                 const explorer = document.getElementById('file-explorer-container');
                 if (explorer) {
                     explorer.classList.remove('open');
+                }
+            }
+        });
+
+        // Handle click outside to close sidebar on mobile
+        document.addEventListener('click', (e) => {
+            if (window.innerWidth <= 768) {
+                const explorer = document.getElementById('file-explorer-container');
+                const editorArea = document.querySelector('.editor-area');
+                
+                if (explorer && explorer.classList.contains('open')) {
+                    // Check if click is outside the sidebar
+                    if (!explorer.contains(e.target) && !e.target.closest('.toolbar-button')) {
+                        explorer.classList.remove('open');
+                    }
                 }
             }
         });

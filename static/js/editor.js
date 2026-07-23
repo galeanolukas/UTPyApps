@@ -339,14 +339,29 @@ class UTPyApps_Editor {
     async loadFile(appName, filename) {
         try {
             console.log(`Loading file: ${appName}/${filename}`);
+            
+            this.currentApp = appName;
+            this.currentFile = filename;
+            
+            // Check if file is an image
+            if (this.isImageFile(filename)) {
+                // Show image preview - filename already includes relative path (e.g., "static/icon.png")
+                const imageUrl = `/_app/${appName}/${filename}`;
+                this.showImagePreview(imageUrl, filename);
+                
+                // Update UI
+                this.updateFileInfo(appName, filename);
+                this.updateSaveStatus('saved');
+                
+                return true;
+            }
+            
+            // Load text file content
             const response = await fetch(`/api/editor/${appName}/file?filename=${encodeURIComponent(filename)}`);
             if (response.ok) {
                 const content = await response.text();
                 console.log(`File content length: ${content.length} chars`);
                 console.log(`File content preview: ${content.substring(0, 100)}...`);
-                
-                this.currentApp = appName;
-                this.currentFile = filename;
                 
                 // Update editor content
                 const language = this.getLanguageFromExtension(filename);
@@ -365,6 +380,25 @@ class UTPyApps_Editor {
             this.showMessage('Error loading file: ' + error.message, 'error');
         }
         return false;
+    }
+
+    // Show image preview
+    showImagePreview(imageUrl, filename) {
+        const editorContainer = document.getElementById('editor');
+        if (!editorContainer) return;
+        
+        editorContainer.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 20px; background: #1a0012;">
+                <div style="max-width: 100%; max-height: 80vh; overflow: auto; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                    <img src="${imageUrl}" alt="${filename}" style="max-width: 100%; max-height: 70vh; display: block; border-radius: 4px;" onerror="this.style.display='none'; this.parentElement.innerHTML='<p style=\\'color: #e74c3c; text-align: center; padding: 20px;\\'>Error cargando imagen</p>'">
+                </div>
+                <div style="margin-top: 20px; text-align: center;">
+                    <p style="color: #888; font-size: 14px; margin: 0;">${filename}</p>
+                    <p style="color: #666; font-size: 12px; margin: 5px 0 0 0;">Vista previa de imagen</p>
+                    <a href="${imageUrl}" target="_blank" style="color: #E95420; text-decoration: none; font-size: 13px; margin-top: 10px; display: inline-block;">Abrir en nueva pestaña</a>
+                </div>
+            </div>
+        `;
     }
 
     // Save file content
@@ -447,8 +481,24 @@ class UTPyApps_Editor {
             case 'js': return 'icon-javascript';
             case 'json': return 'icon-json';
             case 'css': return 'icon-css';
+            case 'png':
+            case 'jpg':
+            case 'jpeg':
+            case 'gif':
+            case 'svg':
+            case 'webp':
+            case 'bmp':
+            case 'ico':
+                return 'icon-image';
             default: return 'icon-file';
         }
+    }
+
+    // Check if file is an image
+    isImageFile(filename) {
+        const ext = filename.split('.').pop().toLowerCase();
+        const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
+        return imageExtensions.includes(ext);
     }
 
     // Update file info UI

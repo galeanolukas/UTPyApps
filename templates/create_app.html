@@ -19,7 +19,7 @@
         </div>
         
         <!-- Formulario -->
-        <form method="POST" class="create-form">
+        <form method="POST" class="create-form" enctype="multipart/form-data">
             <div class="form-grid" style="display: grid; gap: 20px;">
                 
                 <!-- Campo Nombre -->
@@ -34,6 +34,19 @@
                     <label style="color: rgba(255, 255, 255, 0.8); font-size: 13px; font-weight: 500; display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Descripción</label>
                     <textarea name="descripcion" class="form-input" 
                               placeholder="Describe tu aplicación..." rows="4" style="width: 100%; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 12px; color: white; padding: 12px 16px; font-size: 14px; resize: vertical; transition: all 0.3s ease; box-sizing: border-box; font-family: inherit;"></textarea>
+                </div>
+                
+                <!-- Campo Icono -->
+                <div class="form-field">
+                    <label style="color: rgba(255, 255, 255, 0.8); font-size: 13px; font-weight: 500; display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Icono de la App</label>
+                    <div style="background: rgba(255, 255, 255, 0.05); border: 2px dashed rgba(255, 255, 255, 0.2); border-radius: 12px; padding: 20px; text-align: center;">
+                        <input type="file" name="icono" accept=".png,.svg" class="form-input" 
+                               style="width: 100%; background: transparent; border: none; color: white; font-size: 13px; cursor: pointer;">
+                        <p style="color: rgba(255, 255, 255, 0.5); font-size: 11px; margin: 8px 0 0 0;">
+                            Formatos aceptados: PNG, SVG<br>
+                            Tamaño recomendado: 512x512 píxeles
+                        </p>
+                    </div>
                 </div>
                 
             </div>

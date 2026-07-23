@@ -573,6 +573,7 @@ async def crear_app(request):
     if request.method == 'POST':
         nombre = request.form.get('nombre')
         descripcion = request.form.get('descripcion')
+        icono_file = request.files.get('icono')
         
         # Crear estructura básica
         app_folder = os.path.join(APPS_DIR, nombre.lower().replace(' ', '_'))
@@ -585,6 +586,29 @@ async def crear_app(request):
             'author': 'Usuario',
             'version': '1.0'
         }
+        
+        # Manejar subida de icono
+        if icono_file and icono_file.filename:
+            # Validar extensión
+            filename = icono_file.filename.lower()
+            if not filename.endswith(('.png', '.svg')):
+                return Response(json.dumps({'error': 'El icono debe ser PNG o SVG'}), status_code=400, headers={'Content-Type': 'application/json'})
+            
+            # Crear directorio static
+            static_dir = os.path.join(app_folder, 'static')
+            os.makedirs(static_dir, exist_ok=True)
+            
+            # Guardar icono como icon.png o icon.svg
+            icon_filename = 'icon.png' if filename.endswith('.png') else 'icon.svg'
+            icon_path = os.path.join(static_dir, icon_filename)
+            
+            # Guardar archivo
+            with open(icon_path, 'wb') as f:
+                f.write(icono_file.read())
+            
+            # Agregar campo icon al manifest
+            app_manifest['icon'] = icon_filename
+        
         with open(os.path.join(app_folder, 'app.json'), 'w') as f:
             json.dump(app_manifest, f, indent=2)
         
@@ -634,7 +658,7 @@ def home(request):
         templates_dir = os.path.join(app_folder, 'templates')
         os.makedirs(templates_dir, exist_ok=True)
         
-        # Crear carpeta static para la app
+        # Crear carpeta static para la app (si no se creó para el icono)
         static_dir = os.path.join(app_folder, 'static')
         os.makedirs(static_dir, exist_ok=True)
         
