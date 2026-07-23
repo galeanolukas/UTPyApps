@@ -43,13 +43,6 @@
             font-weight: 600;
             margin-right: 10px;
         }
-        .demo-box {
-            background: rgba(233, 84, 32, 0.1);
-            border: 1px solid rgba(233, 84, 32, 0.3);
-            border-radius: 8px;
-            padding: 16px;
-            margin-top: 12px;
-        }
     </style>
 </head>
 <body>
@@ -71,223 +64,190 @@
     <main class="w3-container" style="padding-top: 70px; padding-bottom: 16px;">
         <div class="w3-card w3-round-large" style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 20px;">
             <div style="background: linear-gradient(135deg, rgba(233, 84, 32, 0.8) 0%, rgba(119, 33, 111, 0.8) 100%); color: white; padding: 16px; margin: -20px -20px 12px -20px; border-radius: 12px 12px 0 0;">
-                <h2 style="margin: 0; font-size: 18px;">🚀 Crear Apps con UTPyApps</h2>
-                <p style="margin: 8px 0 0 0; font-size: 13px; opacity: 0.9;">Aprende a crear aplicaciones Python con Microdot para Ubuntu Touch</p>
+                <h2 style="margin: 0; font-size: 18px;">🚀 Guía de UTPyApps</h2>
+                <p style="margin: 8px 0 0 0; font-size: 13px; opacity: 0.9;">Crea aplicaciones Python para Ubuntu Touch de forma sencilla</p>
             </div>
             <div class="w3-padding" style="padding: 16px;">
                 <p style="color: #AEA79F; font-size: 13px;">
-                    UTPyApps usa el framework <strong>Microdot</strong> para crear aplicaciones web ligeras. 
-                    Cada app es un módulo Python independiente con sus propias rutas, templates y archivos estáticos.
+                    UTPyApps es un framework que te permite crear aplicaciones web ligeras usando Python. 
+                    Cada app es independiente y puede tener sus propias rutas, plantillas y archivos estáticos.
                 </p>
             </div>
         </div>
 
-        <!-- Paso 1: Estructura -->
+        <!-- Paso 1: ¿Qué es UTPyApps? -->
         <div class="tutorial-section">
             <h3 style="color: white; font-size: 15px; margin: 0 0 12px 0;">
-                <span class="step-number">1</span> Estructura de una App
+                <span class="step-number">1</span> ¿Qué es UTPyApps?
             </h3>
             <p style="color: #AEA79F; font-size: 13px; margin: 0 0 12px 0;">
-                Cada app en UTPyApps tiene esta estructura:
+                UTPyApps es un sistema para crear aplicaciones web que corren en Ubuntu Touch. 
+                Usa el framework <strong>Microdot</strong>, que es ideal para aplicaciones ligeras y rápidas.
+            </p>
+            <div style="margin-top: 12px;">
+                <p style="color: white; font-size: 13px; margin: 0 0 8px 0;">
+                    <strong>✨ Características principales:</strong>
+                </p>
+                <ul style="color: #AEA79F; font-size: 13px; margin: 0; padding-left: 20px;">
+                    <li style="margin-bottom: 6px;">Aplicaciones web ligeras con Python</li>
+                    <li style="margin-bottom: 6px;">Sistema de plantillas con Jinja2</li>
+                    <li style="margin-bottom: 6px;">Gestión de dependencias automática</li>
+                    <li style="margin-bottom: 6px;">Editor de código integrado</li>
+                    <li style="margin-bottom: 6px;">Despliegue en dispositivos Ubuntu Touch</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Paso 2: Estructura básica -->
+        <div class="tutorial-section">
+            <h3 style="color: white; font-size: 15px; margin: 0 0 12px 0;">
+                <span class="step-number">2</span> Estructura de una App
+            </h3>
+            <p style="color: #AEA79F; font-size: 13px; margin: 0 0 12px 0;">
+                Cada aplicación tiene una estructura simple y organizada:
             </p>
             <div class="code-block">
 apps/mi_app/
-├── main.py          # Código principal (endpoints)
+├── main.py          # Código principal de la app
 ├── app.json         # Configuración y dependencias
-├── templates/       # Templates Jinja2
+├── templates/       # Plantillas HTML
 │   └── index.html
 └── static/          # Archivos estáticos (opcional)
     ├── css/
     ├── js/
     └── images/
             </div>
+            <p style="color: #AEA79F; font-size: 13px; margin: 12px 0 0 0;">
+                <strong>main.py</strong> contiene la lógica de tu aplicación, <strong>app.json</strong> la configuración, 
+                <strong>templates</strong> las plantillas HTML y <strong>static</strong> los archivos estáticos como CSS e imágenes.
+            </p>
         </div>
 
-        <!-- Paso 2: main.py -->
+        <!-- Paso 3: Crear una app -->
         <div class="tutorial-section">
             <h3 style="color: white; font-size: 15px; margin: 0 0 12px 0;">
-                <span class="step-number">2</span> main.py - Código Principal
+                <span class="step-number">3</span> Crear una Nueva App
             </h3>
             <p style="color: #AEA79F; font-size: 13px; margin: 0 0 12px 0;">
-                El archivo <code>main.py</code> define la aplicación Microdot y sus endpoints:
+                Hay dos formas de crear una aplicación:
+            </p>
+            <div style="margin-top: 12px;">
+                <p style="color: white; font-size: 13px; margin: 0 0 8px 0;">
+                    <strong>🌐 Método Web (Recomendado):</strong>
+                </p>
+                <p style="color: #AEA79F; font-size: 13px; margin: 0 0 12px 0;">
+                    Ve al dashboard principal y haz clic en el botón "Nueva App". 
+                    Completa el formulario con el nombre, descripción y dependencias de tu app.
+                </p>
+                
+                <p style="color: white; font-size: 13px; margin: 0 0 8px 0;">
+                    <strong>📁 Método Manual:</strong>
+                </p>
+                <p style="color: #AEA79F; font-size: 13px; margin: 0 0 12px 0;">
+                    Crea una carpeta en <code>apps/</code> con los archivos necesarios siguiendo la estructura mostrada arriba.
+                </p>
+            </div>
+        </div>
+
+        <!-- Paso 4: Conceptos clave -->
+        <div class="tutorial-section">
+            <h3 style="color: white; font-size: 15px; margin: 0 0 12px 0;">
+                <span class="step-number">4</span> Conceptos Clave
+            </h3>
+            <p style="color: #AEA79F; font-size: 13px; margin: 0 0 12px 0;">
+                Para crear aplicaciones efectivas, necesitas entender estos conceptos:
+            </p>
+            <div style="margin-top: 12px;">
+                <p style="color: white; font-size: 13px; margin: 0 0 8px 0;">
+                    <strong>🔗 Rutas (Routes):</strong>
+                </p>
+                <p style="color: #AEA79F; font-size: 13px; margin: 0 0 12px 0;">
+                    Definen las URLs de tu aplicación. Cada ruta responde a una petición específica y puede devolver HTML, JSON u otros datos.
+                </p>
+                
+                <p style="color: white; font-size: 13px; margin: 0 0 8px 0;">
+                    <strong>🎨 Plantillas (Templates):</strong>
+                </p>
+                <p style="color: #AEA79F; font-size: 13px; margin: 0 0 12px 0;">
+                    Usan Jinja2 para crear HTML dinámico. Puedes usar variables, condiciones y bucles para personalizar el contenido.
+                </p>
+                
+                <p style="color: white; font-size: 13px; margin: 0 0 8px 0;">
+                    <strong>📡 APIs:</strong>
+                </p>
+                <p style="color: #AEA79F; font-size: 13px; margin: 0 0 12px 0;">
+                    Los endpoints JSON permiten que tu JavaScript se comunique con el backend. Útiles para formularios, datos dinámicos, etc.
+                </p>
+                
+                <p style="color: white; font-size: 13px; margin: 0 0 8px 0;">
+                    <strong>📦 Dependencias:</strong>
+                </p>
+                <p style="color: #AEA79F; font-size: 13px; margin: 0 0 12px 0;">
+                    En <code>app.json</code> puedes especificar las librerías Python que necesita tu app. UTPyApps las instalará automáticamente.
+                </p>
+            </div>
+        </div>
+
+        <!-- Paso 5: Ejemplo simple -->
+        <div class="tutorial-section">
+            <h3 style="color: white; font-size: 15px; margin: 0 0 12px 0;">
+                <span class="step-number">5</span> Ejemplo Simple
+            </h3>
+            <p style="color: #AEA79F; font-size: 13px; margin: 0 0 12px 0;">
+                Este es un ejemplo básico de una aplicación que muestra "Hola Mundo":
             </p>
             <div class="code-block">
+# main.py
 from microdot import Microdot, Response
 from jinja2 import Environment, FileSystemLoader
 import os
 
-# Crear aplicación
 app = Microdot()
-Response.default_content_type = 'text/html'
-
-# Configurar templates
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 app_env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
 
 @app.route('/')
 def home(request):
-    """Página principal"""
     template = app_env.get_template('index.html')
-    html_content = template.render(
-        app_name='Mi App',
-        app_description='Descripción'
-    )
-    return Response(html_content)
-
-@app.route('/api/hello')
-def api_hello(request):
-    """Endpoint API"""
-    return Response({
-        'message': 'Hola!'
-    }, headers={'Content-Type': 'application/json'})
+    return Response(template.render(nombre='UTPyApps'))
             </div>
-        </div>
-
-        <!-- Paso 3: Templates -->
-        <div class="tutorial-section">
-            <h3 style="color: white; font-size: 15px; margin: 0 0 12px 0;">
-                <span class="step-number">3</span> Templates Jinja2
-            </h3>
-            <p style="color: #AEA79F; font-size: 13px; margin: 0 0 12px 0;">
-                Los templates usan Jinja2 para contenido dinámico:
+            <p style="color: #AEA79F; font-size: 13px; margin: 12px 0 0 0;">
+                Y en el template <code>index.html</code>:
             </p>
             <div class="code-block">
-&lt;!-- Variable --&gt;
-&lt;h1&gt;{{ app_name }}&lt;/h1&gt;
-
-&lt;!-- Condición --&gt;
-{% if user_logged_in %}
-    &lt;p&gt;Bienvenido&lt;/p&gt;
-{% endif %}
-
-&lt;!-- Bucle --&gt;
-{% for item in items %}
-    &lt;p&gt;{{ item }}&lt;/p&gt;
-{% endfor %}
+&lt;h1&gt;Hola {{ nombre }}&lt;/h1&gt;
             </div>
         </div>
 
-        <!-- Paso 4: API Endpoints -->
+        <!-- Paso 6: Despliegue -->
         <div class="tutorial-section">
             <h3 style="color: white; font-size: 15px; margin: 0 0 12px 0;">
-                <span class="step-number">4</span> API Endpoints
+                <span class="step-number">6</span> Despliegue en Dispositivo
             </h3>
             <p style="color: #AEA79F; font-size: 13px; margin: 0 0 12px 0;">
-                Crea endpoints JSON para comunicación con JavaScript:
-            </p>
-            <div class="code-block">
-@app.route('/api/data', methods=['POST'])
-def api_data(request):
-    data = request.json
-    return Response({
-        'result': data['value'] * 2
-    }, headers={'Content-Type': 'application/json'})
-            </div>
-            
-            <div class="demo-box">
-                <h4 style="color: white; font-size: 13px; margin: 0 0 8px 0;">🧪 Demo: Endpoint API</h4>
-                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                    <button onclick="testHello()" class="w3-btn w3-round-large" style="background: linear-gradient(135deg, #E95420 0%, #77216F 100%); color: white; font-size: 12px; padding: 8px 16px;">
-                        Probar /api/hello
-                    </button>
-                    <button onclick="testCalcular()" class="w3-btn w3-round-large" style="background: rgba(255, 255, 255, 0.1); color: white; font-size: 12px; padding: 8px 16px;">
-                        Probar /api/calcular
-                    </button>
-                </div>
-                <div id="demo-result" style="margin-top: 12px; font-size: 12px; color: #00ff00;"></div>
-            </div>
-        </div>
-
-        <!-- Paso 5: app.json -->
-        <div class="tutorial-section">
-            <h3 style="color: white; font-size: 15px; margin: 0 0 12px 0;">
-                <span class="step-number">5</span> app.json - Configuración
-            </h3>
-            <p style="color: #AEA79F; font-size: 13px; margin: 0 0 12px 0;">
-                Define metadatos y dependencias de la app:
-            </p>
-            <div class="code-block">
-{
-  "name": "Mi App",
-  "description": "Descripción de la app",
-  "author": "Tu Nombre",
-  "version": "1.0.0",
-  "icon": "icon.png",
-  "requirements": [
-    "requests>=2.25.0",
-    "pandas>=1.3.0"
-  ]
-}
-            </div>
-        </div>
-
-        <!-- Paso 6: Crear Nueva App -->
-        <div class="tutorial-section">
-            <h3 style="color: white; font-size: 15px; margin: 0 0 12px 0;">
-                <span class="step-number">6</span> Crear una Nueva App
-            </h3>
-            <p style="color: #AEA79F; font-size: 13px; margin: 0 0 12px 0;">
-                Hay dos formas de crear una app:
+                Para desplegar tu app en un dispositivo Ubuntu Touch:
             </p>
             <div style="margin-top: 12px;">
-                <p style="color: white; font-size: 13px; margin: 0 0 8px 0;">
-                    <strong>🌐 Método Web:</strong> Ve al dashboard y haz clic en "Nueva App"
-                </p>
-                <p style="color: white; font-size: 13px; margin: 0 0 8px 0;">
-                    <strong>📁 Método Manual:</strong> Crea la carpeta en <code>apps/</code> con los archivos necesarios
-                </p>
+                <ul style="color: #AEA79F; font-size: 13px; margin: 0; padding-left: 20px;">
+                    <li style="margin-bottom: 8px;">Conecta tu dispositivo vía ADB</li>
+                    <li style="margin-bottom: 8px;">Usa el ADB Manager para configurar el entorno</li>
+                    <li style="margin-bottom: 8px;">Tu app se copiará automáticamente al dispositivo</li>
+                    <li style="margin-bottom: 8px;">Puedes iniciar/detener apps desde el dashboard</li>
+                </ul>
             </div>
         </div>
 
         <!-- Recursos -->
         <div class="w3-card w3-round-large" style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1);">
             <div class="w3-padding" style="padding: 16px;">
-                <h3 style="color: white; font-size: 15px; margin: 0 0 12px 0;">📚 Recursos Adicionales</h3>
+                <h3 style="color: white; font-size: 15px; margin: 0 0 12px 0;">📚 Recursos</h3>
                 <ul style="color: #AEA79F; font-size: 13px; margin: 0; padding-left: 20px;">
                     <li style="margin-bottom: 8px;">Microdot: <a href="https://microdot.readthedocs.io/" target="_blank" style="color: #E95420;">Documentación oficial</a></li>
                     <li style="margin-bottom: 8px;">Jinja2: <a href="https://jinja.palletsprojects.com/" target="_blank" style="color: #E95420;">Documentación oficial</a></li>
-                    <li style="margin-bottom: 8px;">Editor de código: Usa el editor integrado de UTPyApps</li>
+                    <li style="margin-bottom: 8px;">Editor integrado: Usa el editor de código del dashboard</li>
                 </ul>
             </div>
         </div>
     </main>
-
-    <script>
-        function testHello() {
-            const resultDiv = document.getElementById('demo-result');
-            resultDiv.innerHTML = '<span class="loading-spinner"></span> Probando...';
-            
-            fetch('/_app/apps1/api/hello')
-                .then(response => response.json())
-                .then(data => {
-                    resultDiv.innerHTML = '✅ ' + JSON.stringify(data, null, 2);
-                })
-                .catch(error => {
-                    resultDiv.innerHTML = '❌ Error: ' + error.message;
-                });
-        }
-
-        function testCalcular() {
-            const resultDiv = document.getElementById('demo-result');
-            resultDiv.innerHTML = '<span class="loading-spinner"></span> Probando...';
-            
-            fetch('/_app/apps1/api/calcular', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    num1: 10,
-                    num2: 5,
-                    operacion: 'sumar'
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                resultDiv.innerHTML = '✅ ' + JSON.stringify(data, null, 2);
-            })
-            .catch(error => {
-                resultDiv.innerHTML = '❌ Error: ' + error.message;
-            });
-        }
-    </script>
 </body>
 </html>

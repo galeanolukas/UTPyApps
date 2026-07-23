@@ -573,11 +573,18 @@ async def crear_app(request):
     if request.method == 'POST':
         nombre = request.form.get('nombre')
         descripcion = request.form.get('descripcion')
+        librerias = request.form.get('librerias')
         icono_file = request.files.get('icono')
         
         # Crear estructura básica
         app_folder = os.path.join(APPS_DIR, nombre.lower().replace(' ', '_'))
         os.makedirs(app_folder)
+        
+        # Procesar librerías
+        requirements = []
+        if librerias:
+            # Separar por líneas y filtrar líneas vacías
+            requirements = [lib.strip() for lib in librerias.split('\n') if lib.strip()]
         
         # Crear app.json simple
         app_manifest = {
@@ -586,6 +593,10 @@ async def crear_app(request):
             'author': 'Usuario',
             'version': '1.0'
         }
+        
+        # Agregar requirements si hay librerías
+        if requirements:
+            app_manifest['requirements'] = requirements
         
         # Manejar subida de icono
         if icono_file and icono_file.filename:

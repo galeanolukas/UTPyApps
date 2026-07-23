@@ -229,528 +229,10 @@ class ADBManager:
                     'error': result.stderr
                 })
             
-            # Crear archivo main.py completo en el dispositivo con sistema de montado dinámico
-            main_py_content = '''#!/usr/bin/env python3
-# UTPyApps - Meta-Lanzador para Ubuntu Touch
-# Este archivo se genera automáticamente
-
-from microdot import Microdot, Response
-from microdot.cors import CORS
-from jinja2 import Environment, FileSystemLoader
-import json
-import os
-import importlib.util
-import mimetypes
-import subprocess
-import sys
-
-app = Microdot()
-CORS(app, allowed_origins="*", allow_credentials=True)
-Response.default_content_type = 'text/html'
-
-# Configurar entorno
-BASE_DIR = os.path.expanduser('~/utpyapps')
-TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
-STATIC_DIR = os.path.join(BASE_DIR, 'static')
-APPS_DIR = os.path.join(BASE_DIR, 'apps')
-
-env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
-
-# Diccionario para almacenar apps montadas
-mounted_apps = {}
-
-def check_package_installed(package_name):
-    """Verificar si un paquete está instalado en el venv"""
-    try:
-        clean_name = package_name.split('>=')[0].split('==')[0].split('<=')[0].split('~=')[0]
-        __import__(clean_name)
-        return True
-    except ImportError:
-        return False
-
-def install_app_dependencies(app_folder, requirements):
-    """Instalar dependencias de una app usando pip del venv"""
-    if not requirements or len(requirements) == 0:
-        return True, "No dependencies required"
-    
-    try:
-        # Usar pip del entorno virtual si existe
-        venv_pip = os.path.join(BASE_DIR, 'venv', 'bin', 'pip')
-        if os.path.exists(venv_pip):
-            pip_cmd = [venv_pip, 'install'] + requirements
-        else:
-            print(f"⚠️ venv no encontrado, usando pip del sistema")
-            pip_cmd = [sys.executable, '-m', 'pip', 'install'] + requirements
-        
-        print(f"📦 Instalando dependencias para app: {app_folder}")
-        result = subprocess.run(pip_cmd, capture_output=True, text=True, timeout=120)
-        
-        if result.returncode == 0:
-            print(f"✅ Dependencias instaladas: {len(requirements)} paquetes")
-            return True, f"Dependencies installed: {len(requirements)} packages"
-        else:
-            return False, f"Error installing dependencies: {result.stderr}"
-    except Exception as e:
-        return False, f"Error installing dependencies: {str(e)}"
-
-def install_app_dependencies_smart(app_folder, requirements):
-    """Instalar solo las dependencias que no están presentes"""
-    if not requirements or len(requirements) == 0:
-        return True, "No dependencies required"
-    
-    missing_deps = []
-    for req in requirements:
-        package_name = req.split('>=')[0].split('==')[0].split('<=')[0].split('~=')[0]
-        if not check_package_installed(package_name):
-            missing_deps.append(req)
-    
-    if not missing_deps:
-        print(f"✅ Todas las dependencias ya están instaladas")
-        return True, "All dependencies already installed"
-    
-    return install_app_dependencies(app_folder, missing_deps)
-
-def import_module_from_file(module_name, filepath):
-    """Importar un módulo desde archivo"""
-    try:
-        spec = importlib.util.spec_from_file_location(module_name, filepath)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
-    except Exception as e:
-        print(f"Error importando {module_name}: {e}")
-        return None
-
-def cargar_app_manifest(nombre):
-    """Cargar manifest de una app"""
-    manifest_path = os.path.join(APPS_DIR, nombre, 'app.json')
-    if os.path.exists(manifest_path):
-        with open(manifest_path) as f:
-            return json.load(f)
-    return None
-
-def install_apps(current_app):
-    """Instalar y montar todas las apps dinámicamente"""
-    if not os.path.exists(APPS_DIR):
-        return current_app
-    
-    excepciones = ["__pycache__", ".DS_Store", "README.md"]
-    
-    for app_folder in os.listdir(APPS_DIR):
-        if app_folder in excepciones:
-            continue
-            
-        app_path = os.path.join(APPS_DIR, app_folder)
-        if not os.path.isdir(app_path):
-            continue
-            
-        # Buscar archivo principal
-        app_file = None
-        for filename in ["main.py", f"{app_folder}.py", "logic.py"]:
-            file_path = os.path.join(app_path, filename)
-            if os.path.exists(file_path):
-                app_file = file_path
-                break
-        
-        if not app_file:
-            continue
-            
-        try:
-            # Cargar manifest y verificar dependencias
-            manifest = cargar_app_manifest(app_folder)
-            if manifest and 'requirements' in manifest:
-                success, msg = install_app_dependencies_smart(app_folder, manifest['requirements'])
-                if not success:
-                    print(f"⚠️ App {app_folder}: {msg}")
-                    continue
-            
-            # Importar módulo
-            module = import_module_from_file(app_folder, app_file)
-            
-            # Buscar la aplicación Microdot en el módulo
-            sub_app = None
-            if module:
-                if hasattr(module, 'app') and isinstance(getattr(module, 'app'), Microdot):
-                    sub_app = getattr(module, 'app')
-                else:
-                    for attr_name in dir(module):
-                        attr = getattr(module, attr_name)
-                        if isinstance(attr, Microdot):
-                            sub_app = attr
-                            break
-            
-            if sub_app:
-                current_app.mount(sub_app, url_prefix=f'/_app/{app_folder}')
-                mounted_apps[app_folder] = sub_app
-                print(f"✅ App {app_folder} montada correctamente")
-            else:
-                print(f"⚠️ App {app_folder} no define una aplicación Microdot válida")
-                
-        except Exception as e:
-            print(f"❌ Error instalando {app_folder}: {e}")
-    
-    return current_app
-
-def cargar_apps():
-    """Cargar lista de apps instaladas"""
-    apps = []
-    if os.path.exists(APPS_DIR):
-        for app_folder in os.listdir(APPS_DIR):
-            manifest_path = os.path.join(APPS_DIR, app_folder, 'app.json')
-            if os.path.exists(manifest_path):
-                with open(manifest_path) as f:
-                    app_info = json.load(f)
-                    if not app_info.get('hidden', False):
-                        app_info['folder'] = app_folder
-                        apps.append(app_info)
-    return apps
-
-def render_template(template_name, **context):
-    """Funcion helper para renderizar templates"""
-    template = env.get_template(template_name)
-    return template.render(**context)
-
-@app.route('/')
-async def index(request):
-    """Dashboard principal"""
-    apps = cargar_apps()
-    html_content = render_template('index.html', apps=apps)
-    return Response(html_content, headers={'Content-Type': 'text/html; charset=utf-8'})
-
-@app.route('/app/<nombre>')
-async def ver_app(request, nombre):
-    """Ver detalles de una app"""
-    app_data = cargar_app_manifest(nombre)
-    html_content = render_template('app_detail.html', app=app_data)
-    return Response(html_content, headers={'Content-Type': 'text/html; charset=utf-8'})
-
-@app.route('/crear', methods=['GET', 'POST'])
-async def crear_app(request):
-    """Crear una nueva app"""
-    if request.method == 'POST':
-        nombre = request.form.get('nombre')
-        descripcion = request.form.get('descripcion')
-        
-        # Crear estructura básica
-        app_folder = os.path.join(APPS_DIR, nombre.lower().replace(' ', '_'))
-        os.makedirs(app_folder)
-        
-        # Crear app.json simple
-        app_manifest = {
-            'name': nombre,
-            'description': descripcion,
-            'author': 'Usuario',
-            'version': '1.0'
-        }
-        with open(os.path.join(app_folder, 'app.json'), 'w') as f:
-            json.dump(app_manifest, f, indent=2)
-        
-        # Crear main.py simple
-        app_name_clean = nombre.lower().replace(' ', '_')
-        main_template = f"""# {nombre} - App para UTPyApps
-# Name: {nombre}
-# Description: {descripcion or 'App creada con UTPyApps'}
-# Author: Usuario
-# Version: 1.0
-
-from microdot import Microdot, Response
-from jinja2 import Environment, FileSystemLoader
-import os
-
-# Crear aplicación Microdot
-app = Microdot()
-Response.default_content_type = 'text/html'
-
-# Configurar templates para esta app
-TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), 'templates')
-app_env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
-
-@app.route('/')
-def home(request):
-    \"\"\"Página principal de la app\"\"\"
-    template = app_env.get_template('index.html')
-    html_content = template.render(
-        app_name='{nombre}',
-        app_description='{descripcion or "App creada con UTPyApps"}'
-    )
-    return Response(html_content)
-
-# Agrega tus propios endpoints aquí:
-# @app.route('/api/mi_endpoint')
-# def mi_endpoint(request):
-#     return Response({{
-#         'message': 'Hola desde mi endpoint!',
-#         'app': '{nombre}'
-#     }}, headers={{'Content-Type': 'application/json'}})
-"""
-        
-        with open(os.path.join(app_folder, 'main.py'), 'w') as f:
-            f.write(main_template)
-        
-        # Crear estructura de carpetas para la app
-        templates_dir = os.path.join(app_folder, 'templates')
-        os.makedirs(templates_dir, exist_ok=True)
-        
-        # Crear carpeta static para la app
-        static_dir = os.path.join(app_folder, 'static')
-        os.makedirs(static_dir, exist_ok=True)
-        
-        # Crear CSS personalizado para la app
-        css_content = f"""/* Estilos para {nombre} */
-body {{
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 20px;
-    background-color: #f5f5f5;
-}}
-.container {{
-    max-width: 800px;
-    margin: 0 auto;
-    background: white;
-    padding: 30px;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}}
-.header {{
-    text-align: center;
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 2px solid #e0e0e0;
-}}
-.notice {{
-    background: #e8f4fd;
-    border: 1px solid #bee5eb;
-    border-radius: 5px;
-    padding: 15px;
-    margin: 20px 0;
-    color: #0c5460;
-}}
-"""
-        with open(os.path.join(static_dir, 'style.css'), 'w') as f:
-            f.write(css_content)
-        
-        # Crear template index.html simple
-        index_template = f"""<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{{{ app_name }}}}</title>
-    <link rel="stylesheet" href="/_app/{app_name_clean}/static/style.css">
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>{{{{ app_name }}}}</h1>
-            <p>{{{{ app_description }}}}</p>
-        </div>
-        <div class="notice">
-            <h2>¡Bienvenido a tu nueva app!</h2>
-            <p>Esta app fue creada con UTPyApps. Puedes editar los archivos para personalizarla.</p>
-        </div>
-    </div>
-</body>
-</html>
-"""
-        with open(os.path.join(templates_dir, 'index.html'), 'w') as f:
-            f.write(index_template)
-        
-        return Response(json.dumps({'success': True, 'message': f'App {nombre} creada exitosamente'}), headers={'Content-Type': 'application/json'})
-    
-    # GET request - mostrar formulario de creación
-    html_content = render_template('crear_app.html')
-    return Response(html_content, headers={'Content-Type': 'text/html; charset=utf-8'})
-
-# Code Editor Routes
-@app.route('/editor/<app_name>')
-def editor_page(request, app_name):
-    """Pagina del editor de codigo para una app"""
-    app_path = os.path.join(APPS_DIR, app_name)
-    if not os.path.exists(app_path):
-        return Response("App no encontrada", status_code=404)
-    html_content = render_template('editor.html', app_name=app_name)
-    return Response(html_content)
-
-@app.route('/api/editor/<app_name>/files')
-def get_app_files(request, app_name):
-    """Obtener lista de archivos de una app para el editor"""
-    app_path = os.path.join(APPS_DIR, app_name)
-    if not os.path.exists(app_path):
-        return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
-    files = []
-    for root, dirs, filenames in os.walk(app_path):
-        for filename in filenames:
-            if filename.startswith('.') or filename.endswith('.pyc'):
-                continue
-            file_path = os.path.join(root, filename)
-            relative_path = os.path.relpath(file_path, app_path)
-            try:
-                stat = os.stat(file_path)
-                files.append({
-                    'name': relative_path,
-                    'path': file_path,
-                    'size': stat.st_size,
-                    'modified': stat.st_mtime,
-                    'type': 'file'
-                })
-            except Exception as e:
-                print(f"Error getting file info for {file_path}: {e}")
-                continue
-    return Response(json.dumps(files), headers={'Content-Type': 'application/json'})
-
-@app.route('/api/editor/<app_name>/file')
-def get_file_content(request, app_name):
-    """Obtener contenido de un archivo para el editor"""
-    app_path = os.path.join(APPS_DIR, app_name)
-    filename = request.args.get('filename')
-    if not filename:
-        return Response(json.dumps({'error': 'Filename requerido'}), status_code=400, headers={'Content-Type': 'application/json'})
-    from urllib.parse import unquote
-    filename = unquote(filename)
-    file_path = os.path.join(app_path, filename)
-    try:
-        common_path = os.path.commonpath([app_path])
-        file_common_path = os.path.commonpath([app_path, file_path])
-        if common_path != file_common_path:
-            return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
-    except ValueError:
-        return Response(json.dumps({'error': 'Ruta invalida'}), status_code=400, headers={'Content-Type': 'application/json'})
-    if not os.path.exists(file_path) or not os.path.isfile(file_path):
-        return Response(json.dumps({'error': 'Archivo no encontrado'}), status_code=404, headers={'Content-Type': 'application/json'})
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        return Response(content, headers={'Content-Type': 'text/plain'})
-    except UnicodeDecodeError:
-        return Response(json.dumps({'error': 'Archivo binario no soportado'}), status_code=400, headers={'Content-Type': 'application/json'})
-    except Exception as e:
-        return Response(json.dumps({'error': f'Error leyendo archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
-
-@app.route('/api/editor/<app_name>/file', methods=['POST'])
-def save_file_content(request, app_name):
-    """Guardar contenido de un archivo desde el editor"""
-    app_path = os.path.join(APPS_DIR, app_name)
-    if not os.path.exists(app_path):
-        return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
-    filename = request.args.get('filename')
-    if not filename:
-        return Response(json.dumps({'error': 'Filename requerido'}), status_code=400, headers={'Content-Type': 'application/json'})
-    from urllib.parse import unquote
-    filename = unquote(filename)
-    file_path = os.path.join(app_path, filename)
-    try:
-        common_path = os.path.commonpath([app_path])
-        file_common_path = os.path.commonpath([app_path, file_path])
-        if common_path != file_common_path:
-            return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
-    except ValueError:
-        return Response(json.dumps({'error': 'Ruta invalida'}), status_code=400, headers={'Content-Type': 'application/json'})
-    try:
-        content = request.json.get('content', '')
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-        print(f"Archivo guardado: {app_name}/{filename}")
-        return Response(json.dumps({'success': True, 'message': 'Archivo guardado correctamente'}), headers={'Content-Type': 'application/json'})
-    except Exception as e:
-        print(f"Error guardando archivo {filename}: {e}")
-        return Response(json.dumps({'error': f'Error guardando archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
-
-@app.route('/api/editor/<app_name>/file', methods=['DELETE'])
-def delete_file(request, app_name):
-    """Eliminar un archivo desde el editor"""
-    app_path = os.path.join(APPS_DIR, app_name)
-    if not os.path.exists(app_path):
-        return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
-    filename = request.args.get('filename')
-    if not filename:
-        return Response(json.dumps({'error': 'Filename requerido'}), status_code=400, headers={'Content-Type': 'application/json'})
-    from urllib.parse import unquote
-    filename = unquote(filename)
-    file_path = os.path.join(app_path, filename)
-    try:
-        common_path = os.path.commonpath([app_path])
-        file_common_path = os.path.commonpath([app_path, file_path])
-        if common_path != file_common_path:
-            return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
-    except ValueError:
-        return Response(json.dumps({'error': 'Ruta invalida'}), status_code=400, headers={'Content-Type': 'application/json'})
-    if not os.path.exists(file_path):
-        return Response(json.dumps({'error': 'Archivo no encontrado'}), status_code=404, headers={'Content-Type': 'application/json'})
-    essential_files = ['main.py', 'app.json']
-    if filename in essential_files:
-        return Response(json.dumps({'error': f'No se puede eliminar el archivo esencial: {filename}'}), status_code=403, headers={'Content-Type': 'application/json'})
-    try:
-        os.remove(file_path)
-        print(f"Archivo eliminado: {app_name}/{filename}")
-        return Response(json.dumps({'success': True, 'message': 'Archivo eliminado correctamente'}), headers={'Content-Type': 'application/json'})
-    except Exception as e:
-        print(f"Error eliminando archivo {filename}: {e}")
-        return Response(json.dumps({'error': f'Error eliminando archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
-
-@app.route('/static/<path:path>')
-async def static_files(request, path):
-    """Servir archivos estaticos globales"""
-    static_root = os.path.abspath(STATIC_DIR)
-    requested_path = os.path.abspath(os.path.join(static_root, path))
-
-    if not (requested_path == static_root or requested_path.startswith(static_root + os.sep)):
-        return Response('Not found', status_code=404)
-
-    if not os.path.isfile(requested_path):
-        return Response('Not found', status_code=404)
-
-    content_type, _ = mimetypes.guess_type(requested_path)
-    if content_type is None:
-        content_type = 'text/plain'
-
-    with open(requested_path, 'rb') as f:
-        content = f.read()
-
-    return Response(content, headers={'Content-Type': content_type})
-
-@app.route('/_app/<app_name>/static/<path:path>')
-async def app_static_files(request, app_name, path):
-    """Servir archivos estaticos de apps"""
-    app_static_root = os.path.abspath(os.path.join(APPS_DIR, app_name, 'static'))
-    requested_path = os.path.abspath(os.path.join(app_static_root, path))
-
-    if not (requested_path == app_static_root or requested_path.startswith(app_static_root + os.sep)):
-        return Response('Not found', status_code=404)
-
-    if not os.path.isfile(requested_path):
-        return Response('Not found', status_code=404)
-
-    content_type, _ = mimetypes.guess_type(requested_path)
-    if content_type is None:
-        content_type = 'text/plain'
-
-    with open(requested_path, 'rb') as f:
-        content = f.read()
-
-    return Response(content, headers={'Content-Type': content_type})
-
-if __name__ == '__main__':
-    print("Iniciando UTPyApps en Ubuntu Touch")
-    print(f"Base DIR: {BASE_DIR}")
-    print(f"Apps DIR: {APPS_DIR}")
-    
-    # Montar todas las apps
-    install_apps(app)
-    
-    print(f"Servidor disponible en: http://0.0.0.0:8080")
-    app.run(host='0.0.0.0', port=8080)
-'''
-            
-            # Escribir main.py en el dispositivo
-            temp_main = '/tmp/utpyapps_main.py'
-            with open(temp_main, 'w') as f:
-                f.write(main_py_content)
-            
-            push_result = subprocess.run(['adb', '-s', device_id, 'push', temp_main, f'{base_dir}/main.py'],
+            # Copiar main.py local directamente al dispositivo
+            local_main = os.path.join(os.path.dirname(__file__), '../../main.py')
+            push_result = subprocess.run(['adb', '-s', device_id, 'push', local_main, f'{base_dir}/main.py'],
                                        capture_output=True, text=True, timeout=30)
-            
-            os.remove(temp_main)
             
             # Dar permisos de ejecución
             chmod_cmd = ['adb', '-s', device_id, 'shell', f'chmod +x {base_dir}/main.py']
@@ -1044,6 +526,128 @@ end script
                 }
         except Exception as e:
             return False, f"Error deteniendo UTPyApps: {str(e)}"
+    
+    @staticmethod
+    def check_upstart_service(device_id):
+        """Verificar si el servicio Upstart está instalado y su estado"""
+        try:
+            upstart_path = '/home/phablet/.config/upstart/utpyapps.conf'
+            
+            # Verificar si el archivo de configuración existe
+            check_config = subprocess.run(['adb', '-s', device_id, 'shell', f'test -f {upstart_path} && echo "exists" || echo "not_exists"'],
+                                        capture_output=True, text=True, timeout=10)
+            
+            if check_config.returncode == 0 and 'exists' in check_config.stdout:
+                # Verificar si el servicio está activo
+                check_status = subprocess.run(['adb', '-s', device_id, 'shell', 'initctl status utpyapps'],
+                                            capture_output=True, text=True, timeout=10)
+                
+                is_running = 'running' in check_status.stdout.lower() or 'start' in check_status.stdout.lower()
+                
+                return True, {
+                    'installed': True,
+                    'running': is_running,
+                    'status': check_status.stdout.strip(),
+                    'path': upstart_path
+                }
+            else:
+                return True, {
+                    'installed': False,
+                    'running': False,
+                    'status': 'Servicio Upstart no instalado',
+                    'path': upstart_path
+                }
+        except Exception as e:
+            return False, f"Error verificando servicio Upstart: {str(e)}"
+    
+    @staticmethod
+    def enable_upstart_service(device_id):
+        """Habilitar el servicio Upstart para auto-inicio"""
+        try:
+            upstart_path = '/home/phablet/.config/upstart/utpyapps.conf'
+            
+            # Verificar si ya existe
+            check_config = subprocess.run(['adb', '-s', device_id, 'shell', f'test -f {upstart_path} && echo "exists" || echo "not_exists"'],
+                                        capture_output=True, text=True, timeout=10)
+            
+            if check_config.returncode == 0 and 'exists' in check_config.stdout:
+                # Reiniciar el servicio
+                restart_result = subprocess.run(['adb', '-s', device_id, 'shell', 'initctl restart utpyapps'],
+                                              capture_output=True, text=True, timeout=15)
+                
+                return True, {
+                    'message': 'Servicio Upstart reiniciado',
+                    'success': restart_result.returncode == 0,
+                    'output': restart_result.stdout.strip()
+                }
+            else:
+                # Crear el servicio Upstart
+                upstart_config = '''description "UTPyApps Server"
+author "UTPyApps"
+
+start on started lomiri
+stop on shutdown
+
+script
+    cd /home/phablet/utpyapps
+    exec ./utpyapps.sh
+end script
+'''
+                
+                # Crear directorio
+                create_dir = subprocess.run(['adb', '-s', device_id, 'shell', 'mkdir', '-p', '/home/phablet/.config/upstart'],
+                                          capture_output=True, text=True, timeout=10)
+                
+                if create_dir.returncode != 0:
+                    return False, "Error creando directorio upstart"
+                
+                # Crear archivo temporal
+                temp_upstart = '/tmp/utpyapps.conf'
+                with open(temp_upstart, 'w') as f:
+                    f.write(upstart_config)
+                
+                # Copiar al dispositivo
+                push_result = subprocess.run(['adb', '-s', device_id, 'push', temp_upstart, upstart_path],
+                                           capture_output=True, text=True, timeout=30)
+                
+                os.remove(temp_upstart)
+                
+                if push_result.returncode == 0:
+                    # Iniciar el servicio
+                    start_result = subprocess.run(['adb', '-s', device_id, 'shell', 'initctl start utpyapps'],
+                                                capture_output=True, text=True, timeout=15)
+                    
+                    return True, {
+                        'message': 'Servicio Upstart creado e iniciado',
+                        'success': True,
+                        'output': start_result.stdout.strip()
+                    }
+                else:
+                    return False, f"Error copiando archivo upstart: {push_result.stderr}"
+        except Exception as e:
+            return False, f"Error habilitando servicio Upstart: {str(e)}"
+    
+    @staticmethod
+    def disable_upstart_service(device_id):
+        """Deshabilitar el servicio Upstart"""
+        try:
+            upstart_path = '/home/phablet/.config/upstart/utpyapps.conf'
+            
+            # Detener el servicio si está corriendo
+            stop_result = subprocess.run(['adb', '-s', device_id, 'shell', 'initctl stop utpyapps'],
+                                       capture_output=True, text=True, timeout=15)
+            
+            # Eliminar el archivo de configuración
+            remove_result = subprocess.run(['adb', '-s', device_id, 'shell', f'rm -f {upstart_path}'],
+                                         capture_output=True, text=True, timeout=10)
+            
+            return True, {
+                'message': 'Servicio Upstart deshabilitado',
+                'stop_success': stop_result.returncode == 0,
+                'remove_success': remove_result.returncode == 0
+            }
+        except Exception as e:
+            return False, f"Error deshabilitando servicio Upstart: {str(e)}"
     
     @staticmethod
     def check_utpyapps_status(device_id):
@@ -1764,390 +1368,10 @@ end script
                 'error': install_reqs_result.stderr
             })
             
-            # Etapa 8: Crear main.py completo con sistema de montado dinámico
-            main_py_content = '''#!/usr/bin/env python3
-# UTPyApps - Meta-Lanzador para Ubuntu Touch
-# Este archivo se genera automáticamente
-
-from microdot import Microdot, Response
-from microdot.cors import CORS
-from jinja2 import Environment, FileSystemLoader
-import json
-import os
-import importlib.util
-import mimetypes
-import subprocess
-import sys
-
-app = Microdot()
-CORS(app, allowed_origins="*", allow_credentials=True)
-Response.default_content_type = 'text/html'
-
-# Configurar entorno
-BASE_DIR = os.path.expanduser('~/utpyapps')
-TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
-STATIC_DIR = os.path.join(BASE_DIR, 'static')
-APPS_DIR = os.path.join(BASE_DIR, 'apps')
-
-env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
-
-# Diccionario para almacenar apps montadas
-mounted_apps = {}
-
-def check_package_installed(package_name):
-    """Verificar si un paquete está instalado"""
-    try:
-        clean_name = package_name.split('>=')[0].split('==')[0].split('<=')[0].split('~=')[0]
-        __import__(clean_name)
-        return True
-    except ImportError:
-        return False
-
-def install_app_dependencies(app_folder, requirements):
-    """Instalar dependencias de una app usando pip"""
-    if not requirements or len(requirements) == 0:
-        return True, "No dependencies required"
-    
-    try:
-        # Usar pip del entorno virtual si existe
-        venv_pip = os.path.join(BASE_DIR, 'venv', 'bin', 'pip')
-        if os.path.exists(venv_pip):
-            pip_cmd = [venv_pip, 'install'] + requirements
-        else:
-            pip_cmd = [sys.executable, '-m', 'pip', 'install'] + requirements
-        
-        print(f"📦 Instalando dependencias para app: {app_folder}")
-        result = subprocess.run(pip_cmd, capture_output=True, text=True, timeout=120)
-        
-        if result.returncode == 0:
-            print(f"✅ Dependencias instaladas: {len(requirements)} paquetes")
-            return True, f"Dependencies installed: {len(requirements)} packages"
-        else:
-            return False, f"Error installing dependencies: {result.stderr}"
-    except Exception as e:
-        return False, f"Error installing dependencies: {str(e)}"
-
-def install_app_dependencies_smart(app_folder, requirements):
-    """Instalar solo las dependencias que no están presentes"""
-    if not requirements or len(requirements) == 0:
-        return True, "No dependencies required"
-    
-    missing_deps = []
-    for req in requirements:
-        package_name = req.split('>=')[0].split('==')[0].split('<=')[0].split('~=')[0]
-        if not check_package_installed(package_name):
-            missing_deps.append(req)
-    
-    if not missing_deps:
-        print(f"✅ Todas las dependencias ya están instaladas")
-        return True, "All dependencies already installed"
-    
-    return install_app_dependencies(app_folder, missing_deps)
-
-def import_module_from_file(module_name, filepath):
-    """Importar un módulo desde archivo"""
-    try:
-        spec = importlib.util.spec_from_file_location(module_name, filepath)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
-    except Exception as e:
-        print(f"Error importando {module_name}: {e}")
-        return None
-
-def cargar_app_manifest(nombre):
-    """Cargar manifest de una app"""
-    manifest_path = os.path.join(APPS_DIR, nombre, 'app.json')
-    if os.path.exists(manifest_path):
-        with open(manifest_path) as f:
-            return json.load(f)
-    return None
-
-def install_apps(current_app):
-    """Instalar y montar todas las apps dinámicamente"""
-    if not os.path.exists(APPS_DIR):
-        return current_app
-    
-    excepciones = ["__pycache__", ".DS_Store", "README.md"]
-    
-    for app_folder in os.listdir(APPS_DIR):
-        if app_folder in excepciones:
-            continue
-            
-        app_path = os.path.join(APPS_DIR, app_folder)
-        if not os.path.isdir(app_path):
-            continue
-            
-        # Buscar archivo principal
-        app_file = None
-        for filename in ["main.py", f"{app_folder}.py", "logic.py"]:
-            file_path = os.path.join(app_path, filename)
-            if os.path.exists(file_path):
-                app_file = file_path
-                break
-        
-        if not app_file:
-            continue
-            
-        try:
-            # Cargar manifest y verificar dependencias
-            manifest = cargar_app_manifest(app_folder)
-            if manifest and 'requirements' in manifest:
-                success, msg = install_app_dependencies_smart(app_folder, manifest['requirements'])
-                if not success:
-                    print(f"⚠️ App {app_folder}: {msg}")
-                    continue
-            
-            # Importar módulo
-            module = import_module_from_file(app_folder, app_file)
-            
-            # Buscar la aplicación Microdot en el módulo
-            sub_app = None
-            if module:
-                if hasattr(module, 'app') and isinstance(getattr(module, 'app'), Microdot):
-                    sub_app = getattr(module, 'app')
-                else:
-                    for attr_name in dir(module):
-                        attr = getattr(module, attr_name)
-                        if isinstance(attr, Microdot):
-                            sub_app = attr
-                            break
-            
-            if sub_app:
-                current_app.mount(sub_app, url_prefix=f'/_app/{app_folder}')
-                mounted_apps[app_folder] = sub_app
-                print(f"✅ App {app_folder} montada correctamente")
-            else:
-                print(f"⚠️ App {app_folder} no define una aplicación Microdot válida")
-                
-        except Exception as e:
-            print(f"❌ Error instalando {app_folder}: {e}")
-    
-    return current_app
-
-def cargar_apps():
-    """Cargar lista de apps instaladas"""
-    apps = []
-    if os.path.exists(APPS_DIR):
-        for app_folder in os.listdir(APPS_DIR):
-            manifest_path = os.path.join(APPS_DIR, app_folder, 'app.json')
-            if os.path.exists(manifest_path):
-                with open(manifest_path) as f:
-                    app_info = json.load(f)
-                    if not app_info.get('hidden', False):
-                        app_info['folder'] = app_folder
-                        apps.append(app_info)
-    return apps
-
-def render_template(template_name, **context):
-    """Funcion helper para renderizar templates"""
-    template = env.get_template(template_name)
-    return template.render(**context)
-
-@app.route('/')
-async def index(request):
-    """Dashboard principal"""
-    apps = cargar_apps()
-    html_content = render_template('index.html', apps=apps)
-    return Response(html_content, headers={'Content-Type': 'text/html; charset=utf-8'})
-
-@app.route('/app/<nombre>')
-async def ver_app(request, nombre):
-    """Ver detalles de una app"""
-    app_data = cargar_app_manifest(nombre)
-    html_content = render_template('app_detail.html', app=app_data)
-    return Response(html_content, headers={'Content-Type': 'text/html; charset=utf-8'})
-
-# Code Editor Routes
-@app.route('/editor/<app_name>')
-def editor_page(request, app_name):
-    """Pagina del editor de codigo para una app"""
-    app_path = os.path.join(APPS_DIR, app_name)
-    if not os.path.exists(app_path):
-        return Response("App no encontrada", status_code=404)
-    html_content = render_template('editor.html', app_name=app_name)
-    return Response(html_content)
-
-@app.route('/api/editor/<app_name>/files')
-def get_app_files(request, app_name):
-    """Obtener lista de archivos de una app para el editor"""
-    app_path = os.path.join(APPS_DIR, app_name)
-    if not os.path.exists(app_path):
-        return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
-    files = []
-    for root, dirs, filenames in os.walk(app_path):
-        for filename in filenames:
-            if filename.startswith('.') or filename.endswith('.pyc'):
-                continue
-            file_path = os.path.join(root, filename)
-            relative_path = os.path.relpath(file_path, app_path)
-            try:
-                stat = os.stat(file_path)
-                files.append({
-                    'name': relative_path,
-                    'path': file_path,
-                    'size': stat.st_size,
-                    'modified': stat.st_mtime,
-                    'type': 'file'
-                })
-            except Exception as e:
-                print(f"Error getting file info for {file_path}: {e}")
-                continue
-    return Response(json.dumps(files), headers={'Content-Type': 'application/json'})
-
-@app.route('/api/editor/<app_name>/file')
-def get_file_content(request, app_name):
-    """Obtener contenido de un archivo para el editor"""
-    app_path = os.path.join(APPS_DIR, app_name)
-    filename = request.args.get('filename')
-    if not filename:
-        return Response(json.dumps({'error': 'Filename requerido'}), status_code=400, headers={'Content-Type': 'application/json'})
-    from urllib.parse import unquote
-    filename = unquote(filename)
-    file_path = os.path.join(app_path, filename)
-    try:
-        common_path = os.path.commonpath([app_path])
-        file_common_path = os.path.commonpath([app_path, file_path])
-        if common_path != file_common_path:
-            return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
-    except ValueError:
-        return Response(json.dumps({'error': 'Ruta invalida'}), status_code=400, headers={'Content-Type': 'application/json'})
-    if not os.path.exists(file_path) or not os.path.isfile(file_path):
-        return Response(json.dumps({'error': 'Archivo no encontrado'}), status_code=404, headers={'Content-Type': 'application/json'})
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        return Response(content, headers={'Content-Type': 'text/plain'})
-    except UnicodeDecodeError:
-        return Response(json.dumps({'error': 'Archivo binario no soportado'}), status_code=400, headers={'Content-Type': 'application/json'})
-    except Exception as e:
-        return Response(json.dumps({'error': f'Error leyendo archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
-
-@app.route('/api/editor/<app_name>/file', methods=['POST'])
-def save_file_content(request, app_name):
-    """Guardar contenido de un archivo desde el editor"""
-    app_path = os.path.join(APPS_DIR, app_name)
-    if not os.path.exists(app_path):
-        return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
-    filename = request.args.get('filename')
-    if not filename:
-        return Response(json.dumps({'error': 'Filename requerido'}), status_code=400, headers={'Content-Type': 'application/json'})
-    from urllib.parse import unquote
-    filename = unquote(filename)
-    file_path = os.path.join(app_path, filename)
-    try:
-        common_path = os.path.commonpath([app_path])
-        file_common_path = os.path.commonpath([app_path, file_path])
-        if common_path != file_common_path:
-            return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
-    except ValueError:
-        return Response(json.dumps({'error': 'Ruta invalida'}), status_code=400, headers={'Content-Type': 'application/json'})
-    try:
-        content = request.json.get('content', '')
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-        print(f"Archivo guardado: {app_name}/{filename}")
-        return Response(json.dumps({'success': True, 'message': 'Archivo guardado correctamente'}), headers={'Content-Type': 'application/json'})
-    except Exception as e:
-        print(f"Error guardando archivo {filename}: {e}")
-        return Response(json.dumps({'error': f'Error guardando archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
-
-@app.route('/api/editor/<app_name>/file', methods=['DELETE'])
-def delete_file(request, app_name):
-    """Eliminar un archivo desde el editor"""
-    app_path = os.path.join(APPS_DIR, app_name)
-    if not os.path.exists(app_path):
-        return Response(json.dumps({'error': 'App no encontrada'}), status_code=404, headers={'Content-Type': 'application/json'})
-    filename = request.args.get('filename')
-    if not filename:
-        return Response(json.dumps({'error': 'Filename requerido'}), status_code=400, headers={'Content-Type': 'application/json'})
-    from urllib.parse import unquote
-    filename = unquote(filename)
-    file_path = os.path.join(app_path, filename)
-    try:
-        common_path = os.path.commonpath([app_path])
-        file_common_path = os.path.commonpath([app_path, file_path])
-        if common_path != file_common_path:
-            return Response(json.dumps({'error': 'Acceso no permitido'}), status_code=403, headers={'Content-Type': 'application/json'})
-    except ValueError:
-        return Response(json.dumps({'error': 'Ruta invalida'}), status_code=400, headers={'Content-Type': 'application/json'})
-    if not os.path.exists(file_path):
-        return Response(json.dumps({'error': 'Archivo no encontrado'}), status_code=404, headers={'Content-Type': 'application/json'})
-    essential_files = ['main.py', 'app.json']
-    if filename in essential_files:
-        return Response(json.dumps({'error': f'No se puede eliminar el archivo esencial: {filename}'}), status_code=403, headers={'Content-Type': 'application/json'})
-    try:
-        os.remove(file_path)
-        print(f"Archivo eliminado: {app_name}/{filename}")
-        return Response(json.dumps({'success': True, 'message': 'Archivo eliminado correctamente'}), headers={'Content-Type': 'application/json'})
-    except Exception as e:
-        print(f"Error eliminando archivo {filename}: {e}")
-        return Response(json.dumps({'error': f'Error eliminando archivo: {e}'}), status_code=500, headers={'Content-Type': 'application/json'})
-
-@app.route('/static/<path:path>')
-async def static_files(request, path):
-    """Servir archivos estaticos globales"""
-    static_root = os.path.abspath(STATIC_DIR)
-    requested_path = os.path.abspath(os.path.join(static_root, path))
-
-    if not (requested_path == static_root or requested_path.startswith(static_root + os.sep)):
-        return Response('Not found', status_code=404)
-
-    if not os.path.isfile(requested_path):
-        return Response('Not found', status_code=404)
-
-    content_type, _ = mimetypes.guess_type(requested_path)
-    if content_type is None:
-        content_type = 'text/plain'
-
-    with open(requested_path, 'rb') as f:
-        content = f.read()
-
-    return Response(content, headers={'Content-Type': content_type})
-
-@app.route('/_app/<app_name>/static/<path:path>')
-async def app_static_files(request, app_name, path):
-    """Servir archivos estaticos de apps"""
-    app_static_root = os.path.abspath(os.path.join(APPS_DIR, app_name, 'static'))
-    requested_path = os.path.abspath(os.path.join(app_static_root, path))
-
-    if not (requested_path == app_static_root or requested_path.startswith(app_static_root + os.sep)):
-        return Response('Not found', status_code=404)
-
-    if not os.path.isfile(requested_path):
-        return Response('Not found', status_code=404)
-
-    content_type, _ = mimetypes.guess_type(requested_path)
-    if content_type is None:
-        content_type = 'text/plain'
-
-    with open(requested_path, 'rb') as f:
-        content = f.read()
-
-    return Response(content, headers={'Content-Type': content_type})
-
-if __name__ == '__main__':
-    print("Iniciando UTPyApps en Ubuntu Touch")
-    print(f"Base DIR: {BASE_DIR}")
-    print(f"Apps DIR: {APPS_DIR}")
-    
-    # Montar todas las apps
-    install_apps(app)
-    
-    print(f"Servidor disponible en: http://0.0.0.0:8080")
-    app.run(host='0.0.0.0', port=8080)
-'''
-            
-            # Escribir main.py en el dispositivo
-            temp_main = '/tmp/utpyapps_main.py'
-            with open(temp_main, 'w') as f:
-                f.write(main_py_content)
-            
-            push_result = subprocess.run(['adb', '-s', device_id, 'push', temp_main, f'{env_path}/main.py'],
+            # Etapa 8: Copiar main.py local directamente al dispositivo
+            local_main = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'main.py')
+            push_result = subprocess.run(['adb', '-s', device_id, 'push', local_main, f'{env_path}/main.py'],
                                        capture_output=True, text=True, timeout=30)
-            
-            os.remove(temp_main)
             
             results.append({
                 'stage': 8,
@@ -2892,6 +2116,33 @@ def api_start_utpyapps(request, device_id):
 def api_stop_utpyapps(request, device_id):
     """API endpoint para detener UTPyApps en dispositivo"""
     success, result = ADBManager.stop_utpyapps_on_device(device_id)
+    if success:
+        return Response(result, headers={'Content-Type': 'application/json'})
+    else:
+        return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/device/<device_id>/upstart-status', methods=['GET'])
+def api_upstart_status(request, device_id):
+    """API endpoint para verificar estado del servicio Upstart"""
+    success, result = ADBManager.check_upstart_service(device_id)
+    if success:
+        return Response(result, headers={'Content-Type': 'application/json'})
+    else:
+        return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/device/<device_id>/upstart-enable', methods=['POST'])
+def api_upstart_enable(request, device_id):
+    """API endpoint para habilitar el servicio Upstart"""
+    success, result = ADBManager.enable_upstart_service(device_id)
+    if success:
+        return Response(result, headers={'Content-Type': 'application/json'})
+    else:
+        return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/device/<device_id>/upstart-disable', methods=['POST'])
+def api_upstart_disable(request, device_id):
+    """API endpoint para deshabilitar el servicio Upstart"""
+    success, result = ADBManager.disable_upstart_service(device_id)
     if success:
         return Response(result, headers={'Content-Type': 'application/json'})
     else:
