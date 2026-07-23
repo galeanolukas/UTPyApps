@@ -833,6 +833,42 @@ if __name__ == '__main__':
             else:
                 print(f"[UTPYAPPS_ENV] requirements.txt no encontrado en {local_requirements}")
             
+            # Crear servicio Upstart para auto-inicio
+            upstart_config = '''description "UTPyApps Server"
+author "UTPyApps"
+
+start on started lomiri
+stop on shutdown
+
+script
+    cd /home/phablet/utpyapps
+    exec ./utpyapps.sh
+end script
+'''
+            
+            upstart_path = '/home/phablet/.config/upstart/utpyapps.conf'
+            create_upstart_dir = subprocess.run(['adb', '-s', device_id, 'shell', 'mkdir', '-p', '/home/phablet/.config/upstart'],
+                                               capture_output=True, text=True, timeout=10)
+            
+            if create_upstart_dir.returncode == 0:
+                # Crear archivo upstart temporal
+                temp_upstart = '/tmp/utpyapps.conf'
+                with open(temp_upstart, 'w') as f:
+                    f.write(upstart_config)
+                
+                # Copiar al dispositivo
+                push_upstart = subprocess.run(['adb', '-s', device_id, 'push', temp_upstart, upstart_path],
+                                              capture_output=True, text=True, timeout=30)
+                
+                os.remove(temp_upstart)
+                
+                if push_upstart.returncode == 0:
+                    print(f"[UTPYAPPS_ENV] Servicio Upstart creado en {upstart_path}")
+                else:
+                    print(f"[UTPYAPPS_ENV] Error creando servicio Upstart: {push_upstart.stderr}")
+            else:
+                print(f"[UTPYAPPS_ENV] Error creando directorio upstart")
+            
             return True, {
                 'message': 'Entorno UTPyApps creado exitosamente',
                 'directory': base_dir,
@@ -840,7 +876,8 @@ if __name__ == '__main__':
                 'main_py_pushed': push_result.returncode == 0,
                 'chmod_result': chmod_result.returncode == 0,
                 'utpyapps_sh_copied': os.path.exists(local_utpyapps_sh),
-                'requirements_installed': os.path.exists(local_requirements)
+                'requirements_installed': os.path.exists(local_requirements),
+                'upstart_created': create_upstart_dir.returncode == 0 and push_upstart.returncode == 0
             }
         except Exception as e:
             return False, f"Error creando entorno: {str(e)}"
@@ -1544,6 +1581,7 @@ if __name__ == '__main__':
         5. Copiar main.py completo con sistema de montado dinámico
         6. Generar requirements.txt dinámico desde app.json de todas las apps
         7. Generar archivos .desktop para el launcher de Ubuntu Touch
+        8. Crear servicio Upstart para auto-inicio al boot
         """
         try:
             results = []
@@ -2146,6 +2184,55 @@ if __name__ == '__main__':
                 'success': desktop_success,
                 'output': str(desktop_result) if desktop_success else desktop_result,
                 'error': desktop_result if not desktop_success else None
+            })
+            
+            # Etapa 11: Crear servicio Upstart para auto-inicio
+            upstart_config = '''description "UTPyApps Server"
+author "UTPyApps"
+
+start on started lomiri
+stop on shutdown
+
+script
+    cd /home/phablet/utpyapps
+    exec ./utpyapps.sh
+end script
+'''
+            
+            upstart_path = '/home/phablet/.config/upstart/utpyapps.conf'
+            create_upstart_dir = subprocess.run(['adb', '-s', device_id, 'shell', 'mkdir', '-p', '/home/phablet/.config/upstart'],
+                                               capture_output=True, text=True, timeout=10)
+            
+            upstart_success = False
+            upstart_result = None
+            
+            if create_upstart_dir.returncode == 0:
+                # Crear archivo upstart temporal
+                temp_upstart = '/tmp/utpyapps.conf'
+                with open(temp_upstart, 'w') as f:
+                    f.write(upstart_config)
+                
+                # Copiar al dispositivo
+                push_upstart = subprocess.run(['adb', '-s', device_id, 'push', temp_upstart, upstart_path],
+                                              capture_output=True, text=True, timeout=30)
+                
+                os.remove(temp_upstart)
+                
+                if push_upstart.returncode == 0:
+                    upstart_success = True
+                    upstart_result = f'Servicio Upstart creado en {upstart_path}'
+                else:
+                    upstart_result = f'Error creando servicio Upstart: {push_upstart.stderr}'
+            else:
+                upstart_result = 'Error creando directorio upstart'
+            
+            results.append({
+                'stage': 11,
+                'description': 'Crear servicio Upstart para auto-inicio',
+                'command': f'crear {upstart_path}',
+                'success': upstart_success,
+                'output': upstart_result if upstart_success else None,
+                'error': upstart_result if not upstart_success else None
             })
             
             return True, {
