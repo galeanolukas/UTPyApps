@@ -5,10 +5,14 @@
 # Version: 1.0.0
 
 from microdot import Microdot, Response
+from microdot.websocket import with_websocket
 from jinja2 import Environment, FileSystemLoader
 import os
 import subprocess
 import json
+import asyncio
+from PIL import Image
+import base64
 
 # Crear aplicación Microdot
 app = Microdot()
@@ -256,7 +260,7 @@ env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
 mounted_apps = {}
 
 def check_package_installed(package_name):
-    """Verificar si un paquete está instalado"""
+    """Verificar si un paquete está instalado en el venv"""
     try:
         clean_name = package_name.split('>=')[0].split('==')[0].split('<=')[0].split('~=')[0]
         __import__(clean_name)
@@ -265,7 +269,7 @@ def check_package_installed(package_name):
         return False
 
 def install_app_dependencies(app_folder, requirements):
-    """Instalar dependencias de una app usando pip"""
+    """Instalar dependencias de una app usando pip del venv"""
     if not requirements or len(requirements) == 0:
         return True, "No dependencies required"
     
@@ -275,6 +279,7 @@ def install_app_dependencies(app_folder, requirements):
         if os.path.exists(venv_pip):
             pip_cmd = [venv_pip, 'install'] + requirements
         else:
+            print(f"⚠️ venv no encontrado, usando pip del sistema")
             pip_cmd = [sys.executable, '-m', 'pip', 'install'] + requirements
         
         print(f"📦 Instalando dependencias para app: {app_folder}")
@@ -754,12 +759,88 @@ if __name__ == '__main__':
             
             chmod_result = subprocess.run(chmod_cmd, capture_output=True, text=True, timeout=10)
             
+            # Copiar script utpyapps.sh al dispositivo si existe
+            local_utpyapps_sh = os.path.join(os.path.dirname(__file__), '..', '..', 'utpyapps.sh')
+            if os.path.exists(local_utpyapps_sh):
+                push_sh_result = subprocess.run(['adb', '-s', device_id, 'push', local_utpyapps_sh, f'{base_dir}/utpyapps.sh'],
+                                               capture_output=True, text=True, timeout=30)
+                
+                # Dar permisos de ejecución
+                chmod_sh_cmd = ['adb', '-s', device_id, 'shell', f'chmod +x {base_dir}/utpyapps.sh']
+                if sudo_password:
+                    chmod_sh_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S chmod +x {base_dir}/utpyapps.sh']
+                
+                subprocess.run(chmod_sh_cmd, capture_output=True, text=True, timeout=10)
+                print(f"[UTPYAPPS_ENV] Script utpyapps.sh copiado al dispositivo")
+            else:
+                print(f"[UTPYAPPS_ENV] Script utpyapps.sh no encontrado en {local_utpyapps_sh}")
+            
+            # Copiar requirements.txt al dispositivo si existe
+            local_requirements = os.path.join(os.path.dirname(__file__), '..', '..', 'requirements.txt')
+            print(f"[UTPYAPPS_ENV] Ruta local requirements.txt: {local_requirements}")
+            print(f"[UTPYAPPS_ENV] requirements.txt existe localmente: {os.path.exists(local_requirements)}")
+            
+            if os.path.exists(local_requirements):
+                # Leer contenido local para verificar
+                with open(local_requirements, 'r') as f:
+                    local_content = f.read()
+                print(f"[UTPYAPPS_ENV] Contenido local requirements.txt:\n{local_content}")
+                
+                push_req_result = subprocess.run(['adb', '-s', device_id, 'push', local_requirements, f'{base_dir}/requirements.txt'],
+                                                capture_output=True, text=True, timeout=30)
+                print(f"[UTPYAPPS_ENV] Push result: returncode={push_req_result.returncode}")
+                print(f"[UTPYAPPS_ENV] Push stdout: {push_req_result.stdout}")
+                print(f"[UTPYAPPS_ENV] Push stderr: {push_req_result.stderr}")
+                
+                # Verificar que se copió correctamente
+                verify_cmd = ['adb', '-s', device_id, 'shell', f'cat {base_dir}/requirements.txt']
+                verify_result = subprocess.run(verify_cmd, capture_output=True, text=True, timeout=10)
+                print(f"[UTPYAPPS_ENV] Contenido en dispositivo:\n{verify_result.stdout}")
+                
+                # Crear venv en el dispositivo si no existe
+                venv_path = f'{base_dir}/venv'
+                check_venv = subprocess.run(['adb', '-s', device_id, 'shell', f'test -d {venv_path}'],
+                                          capture_output=True, text=True, timeout=10)
+                
+                if check_venv.returncode != 0:
+                    print(f"[UTPYAPPS_ENV] Creando venv en {venv_path}...")
+                    venv_cmd = ['adb', '-s', device_id, 'shell', f'python3 -m venv --without-pip {venv_path}']
+                    if sudo_password:
+                        venv_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S python3 -m venv --without-pip {venv_path}']
+                    
+                    venv_result = subprocess.run(venv_cmd, capture_output=True, text=True, timeout=60)
+                    print(f"[UTPYAPPS_ENV] venv creado: returncode={venv_result.returncode}")
+                    
+                    # Instalar pip en el venv
+                    print(f"[UTPYAPPS_ENV] Instalando pip en venv...")
+                    pip_install_cmd = ['adb', '-s', device_id, 'shell', f'wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py && {venv_path}/bin/python3 /tmp/get-pip.py']
+                    if sudo_password:
+                        pip_install_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S bash -c "wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py && {venv_path}/bin/python3 /tmp/get-pip.py"']
+                    
+                    pip_install_result = subprocess.run(pip_install_cmd, capture_output=True, text=True, timeout=120)
+                    print(f"[UTPYAPPS_ENV] pip instalado en venv: returncode={pip_install_result.returncode}")
+                
+                # Instalar dependencias en el venv
+                print(f"[UTPYAPPS_ENV] Instalando dependencias en venv...")
+                install_cmd = ['adb', '-s', device_id, 'shell', f'cd {base_dir} && {venv_path}/bin/pip install -r requirements.txt']
+                if sudo_password:
+                    install_cmd = ['adb', '-s', device_id, 'shell', f'echo {sudo_password} | sudo -S {venv_path}/bin/pip install -r {base_dir}/requirements.txt']
+                
+                install_result = subprocess.run(install_cmd, capture_output=True, text=True, timeout=300)
+                print(f"[UTPYAPPS_ENV] Instalación de dependencias: returncode={install_result.returncode}")
+                if install_result.returncode != 0:
+                    print(f"[UTPYAPPS_ENV] Error instalando dependencias: {install_result.stderr}")
+            else:
+                print(f"[UTPYAPPS_ENV] requirements.txt no encontrado en {local_requirements}")
+            
             return True, {
                 'message': 'Entorno UTPyApps creado exitosamente',
                 'directory': base_dir,
                 'setup_results': results,
                 'main_py_pushed': push_result.returncode == 0,
-                'chmod_result': chmod_result.returncode == 0
+                'chmod_result': chmod_result.returncode == 0,
+                'utpyapps_sh_copied': os.path.exists(local_utpyapps_sh),
+                'requirements_installed': os.path.exists(local_requirements)
             }
         except Exception as e:
             return False, f"Error creando entorno: {str(e)}"
@@ -814,39 +895,85 @@ if __name__ == '__main__':
                         'output': push_result.stdout
                     })
             
+            # Iniciar UTPyApps automáticamente después de copiar la app
+            try:
+                # Verificar si existe utpyapps.sh en el dispositivo
+                check_script = subprocess.run(['adb', '-s', device_id, 'shell', 'test', '-f', '~/utpyapps/utpyapps.sh'],
+                                            capture_output=True, text=True, timeout=10)
+                
+                if check_script.returncode == 0:
+                    # Usar utpyapps.sh para iniciar
+                    start_cmd = ['adb', '-s', device_id, 'shell', 'cd ~/utpyapps && ./utpyapps.sh']
+                    subprocess.run(start_cmd, capture_output=True, text=True, timeout=15)
+                    print(f"[COPY_APP] UTPyApps iniciado con utpyapps.sh")
+                else:
+                    # Iniciar directamente con python3
+                    start_cmd = ['adb', '-s', device_id, 'shell', 'cd ~/utpyapps && nohup python3 main.py > utpyapps.log 2>&1 &']
+                    subprocess.run(start_cmd, capture_output=True, text=True, timeout=15)
+                    print(f"[COPY_APP] UTPyApps iniciado directamente con python3")
+            except Exception as e:
+                print(f"[COPY_APP] Advertencia: No se pudo iniciar UTPyApps automáticamente: {e}")
+            
             return True, {
-                'message': f'App {app_name} copiada exitosamente',
+                'message': f'App {app_name} copiada exitosamente y UTPyApps iniciado',
                 'app_name': app_name,
                 'remote_path': remote_app_path,
                 'copied_files': copied_files,
-                'total_files': len(copied_files)
+                'total_files': len(copied_files),
+                'utpyapps_started': True
             }
         except Exception as e:
             return False, f"Error copiando app: {str(e)}"
     
     @staticmethod
     def start_utpyapps_on_device(device_id):
-        """Iniciar UTPyApps en el dispositivo"""
+        """Iniciar UTPyApps en el dispositivo usando utpyapps.sh si existe"""
         try:
-            # Verificar si el proceso ya está corriendo
-            check_result = subprocess.run(['adb', '-s', device_id, 'shell', 'pgrep', '-f', 'utpyapps/main.py'],
+            # Verificar si ya está corriendo usando .utpyapps.pid
+            check_pid = subprocess.run(['adb', '-s', device_id, 'shell', 'test', '-f', '~/utpyapps/.utpyapps.pid'],
+                                      capture_output=True, text=True, timeout=10)
+            
+            if check_pid.returncode == 0:
+                # Leer el PID del archivo
+                cat_pid = subprocess.run(['adb', '-s', device_id, 'shell', 'cat', '~/utpyapps/.utpyapps.pid'],
+                                       capture_output=True, text=True, timeout=10)
+                pid = cat_pid.stdout.strip() if cat_pid.returncode == 0 else None
+                
+                # Verificar si el proceso está vivo
+                if pid:
+                    check_process = subprocess.run(['adb', '-s', device_id, 'shell', f'kill -0 {pid} 2>/dev/null'],
+                                                capture_output=True, text=True, timeout=10)
+                    if check_process.returncode == 0:
+                        return True, {
+                            'message': 'UTPyApps ya está corriendo en el dispositivo',
+                            'pid': pid,
+                            'running': True
+                        }
+            
+            # Verificar si existe utpyapps.sh
+            check_script = subprocess.run(['adb', '-s', device_id, 'shell', 'test', '-f', '~/utpyapps/utpyapps.sh'],
                                         capture_output=True, text=True, timeout=10)
             
-            if check_result.returncode == 0 and check_result.stdout.strip():
+            if check_script.returncode == 0:
+                # Usar utpyapps.sh para iniciar (en background para no bloquear)
+                start_result = subprocess.run(['adb', '-s', device_id, 'shell', 'cd ~/utpyapps && nohup ./utpyapps.sh > /dev/null 2>&1 &'],
+                                            capture_output=True, text=True, timeout=15)
                 return True, {
-                    'message': 'UTPyApps ya está corriendo en el dispositivo',
-                    'pid': check_result.stdout.strip()
+                    'message': 'UTPyApps iniciado con utpyapps.sh',
+                    'method': 'utpyapps.sh',
+                    'success': start_result.returncode == 0,
+                    'running': True
                 }
-            
-            # Iniciar UTPyApps en background
-            start_result = subprocess.run(['adb', '-s', device_id, 'shell', 'cd ~/utpyapps && nohup python3 main.py > utpyapps.log 2>&1 &'],
-                                        capture_output=True, text=True, timeout=15)
-            
-            return True, {
-                'message': 'UTPyApps iniciado en el dispositivo',
-                'command': 'cd ~/utpyapps && nohup python3 main.py > utpyapps.log 2>&1 &',
-                'success': start_result.returncode == 0
-            }
+            else:
+                # Iniciar directamente con python3
+                start_result = subprocess.run(['adb', '-s', device_id, 'shell', 'cd ~/utpyapps && nohup python3 main.py > utpyapps.log 2>&1 &'],
+                                            capture_output=True, text=True, timeout=15)
+                return True, {
+                    'message': 'UTPyApps iniciado directamente con python3',
+                    'method': 'python3',
+                    'success': start_result.returncode == 0,
+                    'running': True
+                }
         except Exception as e:
             return False, f"Error iniciando UTPyApps: {str(e)}"
     
@@ -854,16 +981,75 @@ if __name__ == '__main__':
     def stop_utpyapps_on_device(device_id):
         """Detener UTPyApps en el dispositivo"""
         try:
-            # Matar el proceso
-            kill_result = subprocess.run(['adb', '-s', device_id, 'shell', 'pkill', '-f', 'utpyapps/main.py'],
-                                       capture_output=True, text=True, timeout=10)
+            # Intentar usar utpyapps.sh --stop si existe
+            check_script = subprocess.run(['adb', '-s', device_id, 'shell', 'test', '-f', '~/utpyapps/utpyapps.sh'],
+                                        capture_output=True, text=True, timeout=10)
             
-            return True, {
-                'message': 'UTPyApps detenido en el dispositivo',
-                'success': kill_result.returncode == 0
-            }
+            if check_script.returncode == 0:
+                # Usar utpyapps.sh --stop
+                stop_result = subprocess.run(['adb', '-s', device_id, 'shell', 'cd ~/utpyapps && ./utpyapps.sh --stop'],
+                                           capture_output=True, text=True, timeout=15)
+                return True, {
+                    'message': 'UTPyApps detenido con utpyapps.sh --stop',
+                    'method': 'utpyapps.sh',
+                    'success': stop_result.returncode == 0,
+                    'running': False
+                }
+            else:
+                # Matar el proceso directamente
+                kill_result = subprocess.run(['adb', '-s', device_id, 'shell', 'pkill', '-f', 'utpyapps/main.py'],
+                                           capture_output=True, text=True, timeout=10)
+                return True, {
+                    'message': 'UTPyApps detenido con pkill',
+                    'method': 'pkill',
+                    'success': kill_result.returncode == 0,
+                    'running': False
+                }
         except Exception as e:
             return False, f"Error deteniendo UTPyApps: {str(e)}"
+    
+    @staticmethod
+    def check_utpyapps_status(device_id):
+        """Verificar si UTPyApps está corriendo en el dispositivo usando .utpyapps.pid"""
+        try:
+            # Verificar si existe el archivo .utpyapps.pid
+            check_pid = subprocess.run(['adb', '-s', device_id, 'shell', 'test', '-f', '~/utpyapps/.utpyapps.pid'],
+                                      capture_output=True, text=True, timeout=10)
+            
+            if check_pid.returncode == 0:
+                # Leer el PID del archivo
+                cat_pid = subprocess.run(['adb', '-s', device_id, 'shell', 'cat', '~/utpyapps/.utpyapps.pid'],
+                                       capture_output=True, text=True, timeout=10)
+                pid = cat_pid.stdout.strip() if cat_pid.returncode == 0 else None
+                
+                # Verificar si el proceso está vivo
+                if pid:
+                    check_process = subprocess.run(['adb', '-s', device_id, 'shell', f'kill -0 {pid} 2>/dev/null'],
+                                                capture_output=True, text=True, timeout=10)
+                    if check_process.returncode == 0:
+                        return True, {
+                            'running': True,
+                            'pid': pid,
+                            'message': 'UTPyApps está corriendo',
+                            'method': '.utpyapps.pid'
+                        }
+                
+                # Si el archivo existe pero el proceso no está vivo, considerarlo detenido
+                return True, {
+                    'running': False,
+                    'pid': None,
+                    'message': 'UTPyApps no está corriendo (archivo PID obsoleto)',
+                    'method': '.utpyapps.pid'
+                }
+            else:
+                return True, {
+                    'running': False,
+                    'pid': None,
+                    'message': 'UTPyApps no está corriendo',
+                    'method': '.utpyapps.pid'
+                }
+        except Exception as e:
+            return False, f"Error verificando estado: {str(e)}"
     
     @staticmethod
     def get_utpyapps_logs(device_id):
@@ -1464,44 +1650,68 @@ if __name__ == '__main__':
                 'error': install_pip_result.stderr
             })
             
-            # Etapa 6: Generar requirements.txt dinámico desde app.json de todas las apps
-            local_apps_path = os.path.join(local_apps_dir, 'apps')
-            all_requirements = set()
+            # Etapa 6: Copiar requirements.txt del proyecto local
+            local_requirements = os.path.join(os.path.dirname(__file__), '..', '..', 'requirements.txt')
+            package_count = 0
             
-            if os.path.exists(local_apps_path):
-                for app_folder in os.listdir(local_apps_path):
-                    app_json_path = os.path.join(local_apps_path, app_folder, 'app.json')
-                    if os.path.exists(app_json_path):
-                        try:
-                            with open(app_json_path) as f:
-                                app_data = json.load(f)
-                                if 'requirements' in app_data:
-                                    all_requirements.update(app_data['requirements'])
-                        except Exception as e:
-                            print(f"Error leyendo {app_json_path}: {e}")
-            
-            # Agregar requirements básicos
-            all_requirements.update(['microdot', 'jinja2'])
-            
-            # Crear requirements.txt temporal
-            temp_reqs = '/tmp/utpyapps_requirements.txt'
-            with open(temp_reqs, 'w') as f:
-                f.write('\n'.join(sorted(all_requirements)))
-            
-            # Copiar requirements.txt al dispositivo
-            push_reqs_result = subprocess.run(['adb', '-s', device_id, 'push', temp_reqs, f'{env_path}/requirements.txt'],
-                                              capture_output=True, text=True, timeout=30)
-            
-            os.remove(temp_reqs)
-            
-            results.append({
-                'stage': 6,
-                'description': f'Generar requirements.txt con {len(all_requirements)} paquetes',
-                'command': f'push requirements.txt a {env_path}/requirements.txt',
-                'success': push_reqs_result.returncode == 0,
-                'output': push_reqs_result.stdout,
-                'error': push_reqs_result.stderr
-            })
+            if os.path.exists(local_requirements):
+                # Copiar requirements.txt del proyecto
+                push_reqs_result = subprocess.run(['adb', '-s', device_id, 'push', local_requirements, f'{env_path}/requirements.txt'],
+                                                  capture_output=True, text=True, timeout=30)
+                
+                # Contar paquetes
+                with open(local_requirements, 'r') as f:
+                    packages = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+                package_count = len(packages)
+                
+                results.append({
+                    'stage': 6,
+                    'description': f'Copiar requirements.txt con {package_count} paquetes',
+                    'command': f'push requirements.txt a {env_path}/requirements.txt',
+                    'success': push_reqs_result.returncode == 0,
+                    'output': push_reqs_result.stdout,
+                    'error': push_reqs_result.stderr
+                })
+            else:
+                # Fallback: generar requirements.txt dinámico desde app.json
+                local_apps_path = os.path.join(local_apps_dir, 'apps')
+                all_requirements = set()
+                
+                if os.path.exists(local_apps_path):
+                    for app_folder in os.listdir(local_apps_path):
+                        app_json_path = os.path.join(local_apps_path, app_folder, 'app.json')
+                        if os.path.exists(app_json_path):
+                            try:
+                                with open(app_json_path) as f:
+                                    app_data = json.load(f)
+                                    if 'requirements' in app_data:
+                                        all_requirements.update(app_data['requirements'])
+                            except Exception as e:
+                                print(f"Error leyendo {app_json_path}: {e}")
+                
+                # Agregar requirements básicos
+                all_requirements.update(['microdot', 'jinja2'])
+                package_count = len(all_requirements)
+                
+                # Crear requirements.txt temporal
+                temp_reqs = '/tmp/utpyapps_requirements.txt'
+                with open(temp_reqs, 'w') as f:
+                    f.write('\n'.join(sorted(all_requirements)))
+                
+                # Copiar requirements.txt al dispositivo
+                push_reqs_result = subprocess.run(['adb', '-s', device_id, 'push', temp_reqs, f'{env_path}/requirements.txt'],
+                                                  capture_output=True, text=True, timeout=30)
+                
+                os.remove(temp_reqs)
+                
+                results.append({
+                    'stage': 6,
+                    'description': f'Generar requirements.txt con {package_count} paquetes (fallback)',
+                    'command': f'push requirements.txt a {env_path}/requirements.txt',
+                    'success': push_reqs_result.returncode == 0,
+                    'output': push_reqs_result.stdout,
+                    'error': push_reqs_result.stderr
+                })
             
             # Etapa 7: Instalar requirements desde requirements.txt
             install_reqs_cmd = ['adb', '-s', device_id, 'shell', f'{venv_path}/bin/pip', 'install', '-r', f'{env_path}/requirements.txt']
@@ -1509,7 +1719,7 @@ if __name__ == '__main__':
             
             results.append({
                 'stage': 7,
-                'description': f'Instalar {len(all_requirements)} paquetes desde requirements.txt',
+                'description': f'Instalar {package_count} paquetes desde requirements.txt',
                 'command': f'{venv_path}/bin/pip install -r {env_path}/requirements.txt',
                 'success': install_reqs_result.returncode == 0,
                 'output': install_reqs_result.stdout,
@@ -1944,7 +2154,7 @@ if __name__ == '__main__':
                 'venv_path': venv_path,
                 'python_path': f'{venv_path}/bin/python3',
                 'pip_path': f'{venv_path}/bin/pip',
-                'requirements_count': len(all_requirements),
+                'requirements_count': package_count,
                 'results': results
             }
         except Exception as e:
@@ -2173,6 +2383,7 @@ X-Lomiri-Touch=true
         """Tomar captura de pantalla del dispositivo Ubuntu Touch"""
         try:
             import tempfile
+            import time
             from PIL import Image
             import numpy as np
             
@@ -2184,22 +2395,16 @@ X-Lomiri-Touch=true
             
             print(f"[SCREENSHOT] Iniciando captura para dispositivo {device_id}")
             
-            # Capturar pantalla usando mirscreencast
-            capture_cmd = ['adb', '-s', device_id, 'shell', 
-                          'MIR_SOCKET=/run/mir_socket mirscreencast -f ' + device_bgra + ' -n 1']
-            print(f"[SCREENSHOT] Ejecutando: {' '.join(capture_cmd)}")
-            capture_result = subprocess.run(capture_cmd, capture_output=True, text=True, timeout=30)
-            print(f"[SCREENSHOT] Return code: {capture_result.returncode}")
-            print(f"[SCREENSHOT] Stdout: {capture_result.stdout}")
-            print(f"[SCREENSHOT] Stderr: {capture_result.stderr}")
-            
-            if capture_result.returncode != 0:
-                return False, f"Error capturando pantalla: {capture_result.stderr}"
-            
-            # Verificar si el archivo se creó en el dispositivo
-            check_cmd = ['adb', '-s', device_id, 'shell', f'ls -la {device_bgra}']
-            check_result = subprocess.run(check_cmd, capture_output=True, text=True, timeout=10)
-            print(f"[SCREENSHOT] Archivo en dispositivo: {check_result.stdout}")
+            # Intentar encender la pantalla usando DBus
+            try:
+                # Simular actividad del usuario para encender la pantalla
+                wake_cmd = ['adb', '-s', device_id, 'shell', 
+                           'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/32011/bus gdbus call --session --dest com.lomiri.Shell --object-path /ScreenSaver --method org.freedesktop.ScreenSaver.SimulateUserActivity']
+                subprocess.run(wake_cmd, capture_output=True, timeout=10)
+                print(f"[SCREENSHOT] Intentando encender pantalla")
+                time.sleep(1)  # Esperar a que la pantalla se encienda
+            except Exception as e:
+                print(f"[SCREENSHOT] Advertencia: No se pudo encender pantalla: {e}")
             
             # Obtener información del display para dimensiones
             query_cmd = ['adb', '-s', device_id, 'shell', 
@@ -2219,53 +2424,34 @@ X-Lomiri-Touch=true
                         except:
                             pass
             
-            # Pull del archivo BGRA al PC
-            local_bgra = os.path.join(tempfile.gettempdir(), 'screenshot.bgra')
-            pull_cmd = ['adb', '-s', device_id, 'pull', device_bgra, local_bgra]
-            print(f"[SCREENSHOT] Pulling: {device_bgra} -> {local_bgra}")
-            pull_result = subprocess.run(pull_cmd, capture_output=True, text=True, timeout=30)
-            print(f"[SCREENSHOT] Pull return code: {pull_result.returncode}")
-            print(f"[SCREENSHOT] Pull stdout: {pull_result.stdout}")
-            print(f"[SCREENSHOT] Pull stderr: {pull_result.stderr}")
+            # Capturar pantalla usando mirscreencast --stdout (formato RGBA)
+            capture_cmd = ['adb', '-s', device_id, 'exec-out', 
+                          f'MIR_SOCKET=/run/mir_socket mirscreencast -m /run/mir_socket --stdout --cap-interval 1 -s {width} {height} -n 1']
+            print(f"[SCREENSHOT] Ejecutando: {' '.join(capture_cmd)}")
+            capture_result = subprocess.run(capture_cmd, capture_output=True, timeout=30)
             
-            if pull_result.returncode != 0:
-                return False, f"Error descargando captura: {pull_result.stderr}"
+            if capture_result.returncode != 0:
+                print(f"[SCREENSHOT] Error en captura: return code {capture_result.returncode}")
+                return False, f"Error capturando pantalla: return code {capture_result.returncode}"
             
-            # Verificar tamaño del archivo local
-            if os.path.exists(local_bgra):
-                file_size = os.path.getsize(local_bgra)
-                print(f"[SCREENSHOT] Tamaño del archivo BGRA: {file_size} bytes")
-            else:
-                return False, "El archivo BGRA no se descargó correctamente"
+            rgba_data = capture_result.stdout
+            print(f"[SCREENSHOT] Datos RGBA recibidos: {len(rgba_data)} bytes")
             
-            # Convertir BGRA a PNG usando PIL
+            expected_size = width * height * 4  # RGBA = 4 bytes por pixel
+            if len(rgba_data) != expected_size:
+                print(f"[SCREENSHOT] WARNING: Tamaño recibido ({len(rgba_data)}) != esperado ({expected_size})")
+            
+            # Convertir RGBA a PNG usando PIL
             try:
-                # Leer archivo BGRA
-                with open(local_bgra, 'rb') as f:
-                    bgra_data = f.read()
+                # Crear imagen desde bytes RGBA
+                img = Image.frombytes('RGBA', (width, height), rgba_data, 'raw', 'RGBA')
                 
-                print(f"[SCREENSHOT] Datos BGRA leídos: {len(bgra_data)} bytes")
+                # Convertir a RGB (descartar alpha)
+                img_rgb = img.convert('RGB')
                 
-                # Convertir a array numpy y reordenar canales (BGRA -> RGBA)
-                img_array = np.frombuffer(bgra_data, dtype=np.uint8)
-                expected_size = width * height * 4
-                print(f"[SCREENSHOT] Tamaño esperado: {expected_size} bytes, Tamaño real: {len(img_array)} bytes")
-                
-                if len(img_array) != expected_size:
-                    print(f"[SCREENSHOT] WARNING: Tamaño de datos no coincide con dimensiones")
-                
-                img_array = img_array.reshape((height, width, 4))
-                img_array = img_array[:, :, [2, 1, 0, 3]]  # BGRA -> RGBA
-                
-                # Crear imagen PIL y guardar como PNG
-                img = Image.fromarray(img_array, 'RGBA')
-                img.save(output_path, 'PNG')
+                # Guardar como PNG
+                img_rgb.save(output_path, 'PNG')
                 print(f"[SCREENSHOT] PNG guardado en: {output_path}")
-                
-                # Limpiar archivos temporales
-                os.remove(local_bgra)
-                subprocess.run(['adb', '-s', device_id, 'shell', 'rm -f ' + device_bgra], 
-                              capture_output=True, timeout=10)
                 
                 return True, {
                     'message': 'Captura de pantalla tomada exitosamente',
@@ -2273,32 +2459,10 @@ X-Lomiri-Touch=true
                     'width': width,
                     'height': height
                 }
-            except ImportError:
-                # Si PIL/numpy no están disponibles, intentar con ImageMagick
-                convert_cmd = ['convert', '-depth', '8', '-size', f'{width}x{height}', 
-                              'bgra:' + local_bgra, output_path]
-                convert_result = subprocess.run(convert_cmd, capture_output=True, text=True, timeout=30)
-                
-                os.remove(local_bgra)
-                subprocess.run(['adb', '-s', device_id, 'shell', 'rm -f ' + device_bgra], 
-                              capture_output=True, timeout=10)
-                
-                if convert_result.returncode == 0:
-                    return True, {
-                        'message': 'Captura de pantalla tomada exitosamente (ImageMagick)',
-                        'path': output_path,
-                        'width': width,
-                        'height': height
-                    }
-                else:
-                    return False, "Error convirtiendo BGRA a PNG. Instala PIL/Pillow o ImageMagick"
             except Exception as e:
-                print(f"[SCREENSHOT] Error procesando imagen: {str(e)}")
                 return False, f"Error procesando imagen: {str(e)}"
-                
         except Exception as e:
-            print(f"[SCREENSHOT] Error general: {str(e)}")
-            return False, f"Error tomando captura de pantalla: {str(e)}"
+            return False, f"Error en captura de pantalla: {str(e)}"
     
     @staticmethod
     def check_venv_status(device_id, venv_path='/home/phablet/.ubtool/venv'):
@@ -2491,6 +2655,82 @@ def api_reboot(request, device_id):
     else:
         return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
 
+@app.route('/ws/device/<device_id>/screen')
+@with_websocket
+async def screen_stream(request, ws, device_id):
+    """WebSocket endpoint para streaming de pantalla del dispositivo"""
+    try:
+        print(f"[STREAM] Iniciando streaming para dispositivo {device_id}")
+        
+        # Enviar mensaje de conexión
+        await ws.send(json.dumps({'type': 'connected', 'device_id': device_id}))
+        
+        frame_count = 0
+        temp_dir = os.path.join(os.path.dirname(__file__), 'temp')
+        os.makedirs(temp_dir, exist_ok=True)
+        screenshot_path = os.path.join(temp_dir, f'screenshot_{device_id}.png')
+        
+        while True:
+            try:
+                # Capturar pantalla usando mirscreencast
+                success, result = ADBManager.take_screenshot(device_id, screenshot_path)
+                
+                if success:
+                    # Leer el archivo PNG
+                    if os.path.exists(screenshot_path):
+                        with open(screenshot_path, 'rb') as f:
+                            img_bytes = f.read()
+                        
+                        # Codificar en base64
+                        img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+                        
+                        # Obtener dimensiones
+                        img = Image.open(screenshot_path)
+                        width, height = img.size
+                        
+                        # Enviar frame via WebSocket
+                        await ws.send(json.dumps({
+                            'type': 'frame',
+                            'frame_number': frame_count,
+                            'width': width,
+                            'height': height,
+                            'image': img_base64
+                        }))
+                        
+                        frame_count += 1
+                        
+                        # Eliminar archivo temporal
+                        os.remove(screenshot_path)
+                    else:
+                        print(f"[STREAM] Archivo screenshot no encontrado: {screenshot_path}")
+                else:
+                    print(f"[STREAM] Error capturando pantalla: {result}")
+                    await ws.send(json.dumps({'type': 'error', 'message': result}))
+                    break
+                
+                # Esperar antes de la siguiente captura (1 segundo = 1 FPS)
+                await asyncio.sleep(1)
+                
+            except asyncio.CancelledError:
+                print(f"[STREAM] Cliente desconectado del dispositivo {device_id}")
+                break
+            except Exception as e:
+                print(f"[STREAM] Error en streaming: {e}")
+                try:
+                    await ws.send(json.dumps({'type': 'error', 'message': str(e)}))
+                except:
+                    pass
+                break
+                
+    except asyncio.CancelledError:
+        print(f"[STREAM] Cliente desconectado del dispositivo {device_id}")
+    except Exception as e:
+        print(f"[STREAM] Error en streaming: {e}")
+        try:
+            await ws.send(json.dumps({'type': 'error', 'message': str(e)}))
+        except:
+            pass
+
 @app.route('/api/device/<device_id>/screenshot')
 def api_screenshot(request, device_id):
     """API endpoint para capturar pantalla del dispositivo Ubuntu Touch"""
@@ -2565,6 +2805,15 @@ def api_start_utpyapps(request, device_id):
 def api_stop_utpyapps(request, device_id):
     """API endpoint para detener UTPyApps en dispositivo"""
     success, result = ADBManager.stop_utpyapps_on_device(device_id)
+    if success:
+        return Response(result, headers={'Content-Type': 'application/json'})
+    else:
+        return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/device/<device_id>/check-utpyapps', methods=['GET'])
+def api_check_utpyapps(request, device_id):
+    """API endpoint para verificar estado de UTPyApps en dispositivo"""
+    success, result = ADBManager.check_utpyapps_status(device_id)
     if success:
         return Response(result, headers={'Content-Type': 'application/json'})
     else:

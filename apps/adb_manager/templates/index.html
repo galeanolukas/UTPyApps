@@ -225,6 +225,7 @@
                                 <button onclick="showDeviceInfo('{{ device.id }}')" class="btn-action">ℹ️ Info</button>
                                 <button onclick="openShell('{{ device.id }}')" class="btn-action">💻 Shell</button>
                                 <button onclick="takeScreenshot('{{ device.id }}')" class="btn-action">📷 Screenshot</button>
+                                <button onclick="startScreenStream('{{ device.id }}')" class="btn-action">📺 Stream</button>
                                 <button onclick="rebootDevice('{{ device.id }}', 'system')" class="btn-action">🔄 Reiniciar</button>
                                 <button onclick="checkPythonEnv('{{ device.id }}')" class="btn-action">🐍 Python</button>
                             </div>
@@ -235,6 +236,16 @@
                             
                             <div id="python-env-info-{{ device.id }}" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
                                 <div class="terminal-output" id="python-env-output-{{ device.id }}">Cargando entorno Python...</div>
+                            </div>
+                            
+                            <div id="screen-stream-{{ device.id }}" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <span style="color: #888; font-size: 13px;">Streaming de pantalla</span>
+                                    <button onclick="stopScreenStream('{{ device.id }}')" style="background: rgba(231, 76, 60, 0.3); border: none; color: #e74c3c; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">Detener</button>
+                                </div>
+                                <div id="stream-output-{{ device.id }}" style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 20px; min-height: 200px; display: flex; align-items: center; justify-content: center;">
+                                    <div style="color: #888; font-size: 14px;">Conectando al stream...</div>
+                                </div>
                             </div>
                         </div>
                         {% endfor %}
@@ -280,6 +291,10 @@
                         {% endif %}
                         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
                             <button onclick="generateDesktopFiles('{{ devices[0].id }}')" class="btn-action" style="width: 100%;">📱 Generar Accesos Launcher</button>
+                        </div>
+                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                            <div id="utpyapps-status" style="margin-bottom: 8px; font-size: 12px; color: rgba(255, 255, 255, 0.7);">Verificando estado...</div>
+                            <button id="utpyapps-toggle-btn" onclick="toggleUTPyApps('{{ devices[0].id }}')" class="btn-action" style="width: 100%;">⏳ Cargando...</button>
                         </div>
                         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
                             <button onclick="removeUTPyApps('{{ devices[0].id }}')" class="btn-action" style="width: 100%; background: rgba(231, 76, 60, 0.2); border: 1px solid rgba(231, 76, 60, 0.5);">🗑️ Eliminar UTPyApps</button>
@@ -629,6 +644,92 @@
                 });
         }
 
+        // WebSocket connections for screen streaming
+        const screenStreams = {};
+
+        function startScreenStream(deviceId) {
+            const streamDiv = document.getElementById(`screen-stream-${deviceId}`);
+            const output = document.getElementById(`stream-output-${deviceId}`);
+            
+            if (!streamDiv || !output) {
+                console.error('Elementos no encontrados para deviceId:', deviceId);
+                return;
+            }
+            
+            // Cerrar conexión existente si hay una
+            if (screenStreams[deviceId]) {
+                screenStreams[deviceId].close();
+            }
+            
+            streamDiv.style.display = 'block';
+            output.innerHTML = '<div style="color: #888; font-size: 14px;">Conectando al stream...</div>';
+            
+            // Crear conexión WebSocket
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/_app/adb_manager/ws/device/${deviceId}/screen`;
+            
+            const ws = new WebSocket(wsUrl);
+            screenStreams[deviceId] = ws;
+            
+            ws.onopen = () => {
+                console.log('[STREAM] Conexión establecida para dispositivo', deviceId);
+                output.innerHTML = '<div style="color: #2ecc71; font-size: 14px;">✅ Conectado - Recibiendo stream...</div>';
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'connected') {
+                        output.innerHTML = `<div style="color: #2ecc71; font-size: 14px;">✅ Conectado al dispositivo ${data.device_id}</div>`;
+                    } else if (data.type === 'stream_ready') {
+                        output.innerHTML = `<div style="color: #2ecc71; font-size: 14px;">✅ ${data.message}</div>`;
+                    } else if (data.type === 'frame') {
+                        // Mostrar imagen real del frame
+                        output.innerHTML = `
+                            <div style="text-align: center;">
+                                <img src="data:image/jpeg;base64,${data.image}" 
+                                     alt="Frame #${data.frame_number}" 
+                                     style="max-width: 100%; max-height: 400px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                                <div style="color: #888; font-size: 12px; margin-top: 10px;">
+                                    Frame #${data.frame_number} | ${data.width}x${data.height}
+                                </div>
+                            </div>
+                        `;
+                    } else if (data.type === 'error') {
+                        output.innerHTML = `<div style="color: #e74c3c; font-size: 14px;">❌ Error: ${data.message}</div>`;
+                    }
+                } catch (e) {
+                    console.error('[STREAM] Error parsing message:', e);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('[STREAM] Error en WebSocket:', error);
+                output.innerHTML = '<div style="color: #e74c3c; font-size: 14px;">❌ Error de conexión</div>';
+            };
+            
+            ws.onclose = () => {
+                console.log('[STREAM] Conexión cerrada para dispositivo', deviceId);
+                delete screenStreams[deviceId];
+                output.innerHTML = '<div style="color: #888; font-size: 14px;">⏹️ Stream detenido</div>';
+            };
+        }
+
+        function stopScreenStream(deviceId) {
+            const streamDiv = document.getElementById(`screen-stream-${deviceId}`);
+            const output = document.getElementById(`stream-output-${deviceId}`);
+            
+            if (screenStreams[deviceId]) {
+                screenStreams[deviceId].close();
+                delete screenStreams[deviceId];
+            }
+            
+            if (streamDiv) {
+                streamDiv.style.display = 'none';
+            }
+        }
+
         function installPip(deviceId) {
             showSudoModal((password) => {
                 const output = document.getElementById('python-env-status');
@@ -885,6 +986,106 @@
                 });
             });
         }
+
+        function checkUTPyAppsStatus(deviceId) {
+            const statusDiv = document.getElementById('utpyapps-status');
+            const toggleBtn = document.getElementById('utpyapps-toggle-btn');
+            
+            fetch(`/_app/adb_manager/api/device/${deviceId}/check-utpyapps`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.running) {
+                        statusDiv.innerHTML = `<span style="color: #00ff00;">● UTPyApps corriendo (PID: ${data.pid})</span>`;
+                        toggleBtn.innerHTML = '⏹️ Detener UTPyApps';
+                        toggleBtn.style.background = 'rgba(231, 76, 60, 0.2)';
+                        toggleBtn.style.border = '1px solid rgba(231, 76, 60, 0.5)';
+                    } else {
+                        statusDiv.innerHTML = `<span style="color: #e74c3c;">● UTPyApps detenido</span>`;
+                        toggleBtn.innerHTML = '▶️ Iniciar UTPyApps';
+                        toggleBtn.style.background = 'rgba(46, 204, 113, 0.2)';
+                        toggleBtn.style.border = '1px solid rgba(46, 204, 113, 0.5)';
+                    }
+                })
+                .catch(error => {
+                    statusDiv.innerHTML = `<span style="color: #e74c3c;">Error verificando estado</span>`;
+                    toggleBtn.innerHTML = '🔄 Reintentar';
+                });
+        }
+
+        function toggleUTPyApps(deviceId) {
+            const statusDiv = document.getElementById('utpyapps-status');
+            const toggleBtn = document.getElementById('utpyapps-toggle-btn');
+            
+            // Verificar estado actual
+            fetch(`/_app/adb_manager/api/device/${deviceId}/check-utpyapps`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.running) {
+                        // Detener UTPyApps
+                        toggleBtn.innerHTML = '⏳ Deteniendo...';
+                        toggleBtn.disabled = true;
+                        
+                        fetch(`/_app/adb_manager/api/device/${deviceId}/stop-utpyapps`, {
+                            method: 'POST'
+                        })
+                        .then(response => response.json())
+                        .then(result => {
+                            if (result.success || result.running === false) {
+                                statusDiv.innerHTML = `<span style="color: #00ff00;">✅ ${result.message}</span>`;
+                                toggleBtn.innerHTML = '▶️ Iniciar UTPyApps';
+                                toggleBtn.style.background = 'rgba(46, 204, 113, 0.2)';
+                                toggleBtn.style.border = '1px solid rgba(46, 204, 113, 0.5)';
+                                // Actualizar estado después de detener
+                                setTimeout(() => checkUTPyAppsStatus(deviceId), 1000);
+                            } else {
+                                statusDiv.innerHTML = `<span style="color: #e74c3c;">❌ Error: ${result.error || result.message}</span>`;
+                            }
+                            toggleBtn.disabled = false;
+                        })
+                        .catch(error => {
+                            statusDiv.innerHTML = `<span style="color: #e74c3c;">Error: ${error.message}</span>`;
+                            toggleBtn.disabled = false;
+                        });
+                    } else {
+                        // Iniciar UTPyApps
+                        toggleBtn.innerHTML = '⏳ Iniciando...';
+                        toggleBtn.disabled = true;
+                        
+                        fetch(`/_app/adb_manager/api/device/${deviceId}/start-utpyapps`, {
+                            method: 'POST'
+                        })
+                        .then(response => response.json())
+                        .then(result => {
+                            if (result.success || result.running === true) {
+                                statusDiv.innerHTML = `<span style="color: #00ff00;">✅ ${result.message}</span>`;
+                                toggleBtn.innerHTML = '⏹️ Detener UTPyApps';
+                                toggleBtn.style.background = 'rgba(231, 76, 60, 0.2)';
+                                toggleBtn.style.border = '1px solid rgba(231, 76, 60, 0.5)';
+                                // Actualizar estado después de iniciar
+                                setTimeout(() => checkUTPyAppsStatus(deviceId), 1000);
+                            } else {
+                                statusDiv.innerHTML = `<span style="color: #e74c3c;">❌ Error: ${result.error || result.message}</span>`;
+                            }
+                            toggleBtn.disabled = false;
+                        })
+                        .catch(error => {
+                            statusDiv.innerHTML = `<span style="color: #e74c3c;">Error: ${error.message}</span>`;
+                            toggleBtn.disabled = false;
+                        });
+                    }
+                })
+                .catch(error => {
+                    statusDiv.innerHTML = `<span style="color: #e74c3c;">Error verificando estado</span>`;
+                });
+        }
+
+        // Verificar estado de UTPyApps al cargar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            const deviceId = '{{ devices[0].id if devices else "" }}';
+            if (deviceId) {
+                checkUTPyAppsStatus(deviceId);
+            }
+        });
 
     </script>
 </body>

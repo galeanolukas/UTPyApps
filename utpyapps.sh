@@ -90,9 +90,8 @@ start_server() {
     fi
 
     if [ ! -f "$PYTHON" ]; then
-        echo "Error: No se encontró Python en $VENV_DIR"
-        echo "Ejecuta la configuración del entorno desde ADB Manager primero."
-        exit 1
+        echo "Advertencia: No se encontró Python en $VENV_DIR, usando Python del sistema"
+        PYTHON="python3"
     fi
 
     echo "Iniciando UTPyApps..."
