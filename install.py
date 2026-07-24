@@ -130,6 +130,7 @@ def download_files():
         "static/js/editor.js": "static/js/editor.js",
         "static/js/ubtool.js": "static/js/ubtool.js",
         "static/images/UTPyApps.png": "static/images/UTPyApps.png",
+        "static/logo.png": "static/logo.png",
     }
     
     # Templates
