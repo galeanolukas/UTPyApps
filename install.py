@@ -143,13 +143,7 @@ def download_files():
         "templates/editor.html": "templates/editor.html",
     }
     
-    # Locales
-    locale_files = {
-        "locales/es.json": "locales/es.json",
-        "locales/en.json": "locales/en.json",
-    }
-    
-    all_files = {**files, **static_files, **template_files, **locale_files}
+    all_files = {**files, **static_files, **template_files}
     
     success_count = 0
     for remote_path, local_path in all_files.items():
