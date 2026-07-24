@@ -327,6 +327,8 @@ Icon=UTPyApps
 Terminal=false
 Type=Application
 Categories=Utility;
+X-Ubuntu-Touch=true
+X-Ubuntu-XMir-Enable=true
 """.format(install_dir=INSTALL_DIR)
         
         desktop_file = desktop_dir / "UTPyApps.desktop"
