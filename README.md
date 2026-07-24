@@ -60,11 +60,39 @@ utpyapps/
 ### Requisitos
 - Python 3.7+
 - pip
+- requests (para el instalador automático)
 
 ### Instalación
+
+#### Método 1: Instalador Automático (Recomendado)
+
+El instalador Python multiplataforma detecta automáticamente tu sistema operativo (Linux, Windows, Ubuntu Touch, macOS) y adapta el proceso de instalación.
+
+**Linux / Ubuntu Touch:**
+```bash
+python3 -c "import requests; exec(requests.get('https://raw.githubusercontent.com/galeanolukas/UTPyApps/main/install.py').text)"
+```
+
+**Windows:**
+```bash
+python -c "import requests; exec(requests.get('https://raw.githubusercontent.com/galeanolukas/UTPyApps/main/install.py').text)"
+```
+
+**Características del instalador:**
+- ✅ Detección automática de plataforma
+- ✅ Descarga automática de todos los archivos desde GitHub
+- ✅ Creación de entorno virtual adaptado a la plataforma
+- ✅ Instalación automática de dependencias
+- ✅ Configuración de permisos (Linux/Ubuntu Touch)
+- ✅ Creación de archivo .desktop (Ubuntu Touch)
+- ✅ Configuración de autostart (Ubuntu Touch)
+- ✅ Creación de acceso directo (Windows)
+
+#### Método 2: Instalación Manual
+
 ```bash
 # Clonar el repositorio
-git clone <repository-url>
+git clone https://github.com/galeanolukas/UTPyApps.git
 cd utpyapps
 
 # Crear entorno virtual
