@@ -4,18 +4,18 @@
 
 {% block content %}
 <!-- Contenedor transparente con márgenes responsive -->
-<div class="transparent-container" style="max-width: 900px; margin: 0 auto; padding: 20px;">
-    
+<div class="transparent-container" style="max-width: auto; margin: 0 auto; padding: 20px;">
+
     <!-- Card principal de creación -->
     <div class="create-card" style="background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 20px; padding: 30px; margin-bottom: 20px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);">
-        
+
         <!-- Header -->
-        <div class="create-header" style="text-align: center; margin-bottom: 30px;">
-            <div style="width: 80px; height: 80px; margin: 0 auto 20px auto; background: linear-gradient(135deg, #E95420 0%, #77216F 100%); border-radius: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(233, 84, 32, 0.3);">
-                <span style="font-size: 36px; color: white;">🚀</span>
+        <div class="create-header" style="text-align: center; margin-bottom: 20px;">
+            <div style="width: 50px; height: 50px; margin: 0 auto 12px auto; background: linear-gradient(135deg, #E95420 0%, #77216F 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(233, 84, 32, 0.3);">
+                <span style="font-size: 24px; color: white;">🚀</span>
             </div>
-            <h2 style="color: white; font-size: 28px; font-weight: 600; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px;">Crear Nueva App</h2>
-            <p style="color: rgba(255, 255, 255, 0.7); font-size: 14px; margin: 0;">Completa el formulario para crear una nueva aplicación</p>
+            <h2 style="color: white; font-size: 22px; font-weight: 600; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 1px;">Crear Nueva App</h2>
+            <p style="color: rgba(255, 255, 255, 0.7); font-size: 13px; margin: 0;">Completa el formulario para crear una nueva aplicación</p>
         </div>
         
         <!-- Formulario -->
@@ -32,10 +32,27 @@
                 <!-- Campo Descripción -->
                 <div class="form-field">
                     <label style="color: rgba(255, 255, 255, 0.8); font-size: 13px; font-weight: 500; display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Descripción</label>
-                    <textarea name="descripcion" class="form-input" 
+                    <textarea name="descripcion" class="form-input"
                               placeholder="Describe tu aplicación..." rows="4" style="width: 100%; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 12px; color: white; padding: 12px 16px; font-size: 14px; resize: vertical; transition: all 0.3s ease; box-sizing: border-box; font-family: inherit;"></textarea>
                 </div>
-                
+
+                <!-- Campo Categoría -->
+                <div class="form-field">
+                    <label style="color: rgba(255, 255, 255, 0.8); font-size: 13px; font-weight: 500; display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Categoría</label>
+                    <select name="categoria" class="form-input" style="width: 100%; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 12px; color: white; padding: 12px 16px; font-size: 14px; transition: all 0.3s ease; box-sizing: border-box; cursor: pointer;">
+                        <option value="general" style="background: #2c001e; color: white;">📱 General</option>
+                        <option value="ai" style="background: #2c001e; color: white;">🤖 Inteligencia Artificial</option>
+                        <option value="system" style="background: #2c001e; color: white;">⚙️ Sistema</option>
+                        <option value="tools" style="background: #2c001e; color: white;">🔧 Herramientas</option>
+                        <option value="productivity" style="background: #2c001e; color: white;">📊 Productividad</option>
+                        <option value="media" style="background: #2c001e; color: white;">🎬 Multimedia</option>
+                        <option value="communication" style="background: #2c001e; color: white;">💬 Comunicación</option>
+                    </select>
+                    <p style="color: rgba(255, 255, 255, 0.5); font-size: 11px; margin: 6px 0 0 0;">
+                        Selecciona la categoría que mejor describa tu aplicación
+                    </p>
+                </div>
+
                 <!-- Campo Librerías -->
                 <div class="form-field">
                     <label style="color: rgba(255, 255, 255, 0.8); font-size: 13px; font-weight: 500; display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Librerías (Opcional)</label>

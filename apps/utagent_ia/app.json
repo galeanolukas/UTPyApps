@@ -1,0 +1,13 @@
+{
+  "name": "UTAgent IA",
+  "description": "Agente de IA con capacidades de chat, system prompts y tools para Ubuntu Touch",
+  "category": "ai",
+  "author": "UTPyApps",
+  "version": "1.0.0",
+  "icon": "icon.png",
+  "requirements": [
+    "ollama>=0.1.0",
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0"
+  ]
+}

@@ -1,6 +1,7 @@
 {
   "name": "ADB Manager",
   "description": "Gestor de conexión ADB para dispositivos Ubuntu Touch con interfaz Lomiri",
+  "category": "system",
   "author": "UTPyApps",
   "version": "1.0.0",
   "requirements": [],

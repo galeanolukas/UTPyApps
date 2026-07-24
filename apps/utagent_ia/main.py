@@ -1,14 +1,16 @@
-# Ollama Chat - Chat con modelos de IA usando Ollama
-# Name: Ollama Chat
-# Description: Chat con modelos de IA usando Ollama - Sistema de conversaciones con historial
+# UTAgent IA - Agente de IA con capacidades de chat, system prompts y tools
+# Name: UTAgent IA
+# Description: Agente de IA con capacidades de chat, system prompts y tools para Ubuntu Touch
 # Author: UTPyApps
-# Version: 2.0.0
+# Version: 1.0.0
 
 from microdot import Microdot, Response
 from jinja2 import Environment, FileSystemLoader
 import os
 import sqlite3
 import json
+import subprocess
+import requests
 from datetime import datetime
 
 try:
@@ -16,6 +18,12 @@ try:
     OLLAMA_AVAILABLE = True
 except ImportError:
     OLLAMA_AVAILABLE = False
+
+try:
+    from bs4 import BeautifulSoup
+    BS4_AVAILABLE = True
+except ImportError:
+    BS4_AVAILABLE = False
 
 app = Microdot()
 Response.default_content_type = 'text/html'
@@ -103,6 +111,78 @@ class OllamaService:
 # Instancia global del servicio
 ollama_service = OllamaService()
 
+# --- Tools del Agente ---
+
+class AgentTools:
+    """Herramientas disponibles para el agente de IA"""
+    
+    @staticmethod
+    def web_scrape(url):
+        """Extraer contenido de una URL"""
+        if not BS4_AVAILABLE:
+            return "Error: BeautifulSoup no está instalado"
+        
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Extraer texto del body
+            text = soup.get_text(separator='\n', strip=True)
+            
+            # Limitar longitud
+            if len(text) > 10000:
+                text = text[:10000] + '... (truncado)'
+            
+            return f"Contenido extraído de {url}:\n\n{text}"
+        except Exception as e:
+            return f"Error scraping {url}: {str(e)}"
+    
+    @staticmethod
+    def execute_command(command):
+        """Ejecutar un comando del sistema (con restricciones)"""
+        # Comandos permitidos (lista blanca)
+        allowed_commands = ['ls', 'pwd', 'date', 'whoami', 'uname', 'df', 'free', 'top']
+        
+        command_parts = command.split()
+        if not command_parts:
+            return "Error: Comando vacío"
+        
+        base_command = command_parts[0]
+        
+        if base_command not in allowed_commands:
+            return f"Error: Comando '{base_command}' no permitido por seguridad"
+        
+        try:
+            result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=10)
+            
+            output = result.stdout if result.stdout else result.stderr
+            if len(output) > 5000:
+                output = output[:5000] + '... (truncado)'
+            
+            return output
+        except subprocess.TimeoutExpired:
+            return "Error: Comando excedió tiempo límite"
+        except Exception as e:
+            return f"Error ejecutando comando: {str(e)}"
+    
+    @staticmethod
+    def get_system_info():
+        """Obtener información del sistema"""
+        try:
+            info = {
+                'os': subprocess.run(['uname', '-a'], capture_output=True, text=True).stdout.strip(),
+                'cpu': subprocess.run(['uname', '-m'], capture_output=True, text=True).stdout.strip(),
+                'memory': subprocess.run(['free', '-h'], capture_output=True, text=True).stdout.strip(),
+                'disk': subprocess.run(['df', '-h', '/'], capture_output=True, text=True).stdout.strip(),
+            }
+            return json.dumps(info, indent=2)
+        except Exception as e:
+            return f"Error obteniendo info del sistema: {str(e)}"
+
+agent_tools = AgentTools()
+
 # --- Base de Datos ---
 
 def init_db():
@@ -116,6 +196,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT DEFAULT 'Nueva conversación',
             model TEXT,
+            system_prompt TEXT DEFAULT 'Eres un asistente útil y amigable.',
+            temperature REAL DEFAULT 0.7,
             created_at TEXT,
             updated_at TEXT
         )
@@ -132,6 +214,34 @@ def init_db():
             FOREIGN KEY (conversation_id) REFERENCES conversations (id) ON DELETE CASCADE
         )
     ''')
+    
+    # Tabla de system prompts predefinidos
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS system_prompts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE,
+            description TEXT,
+            prompt TEXT,
+            is_default BOOLEAN DEFAULT 0
+        )
+    ''')
+    
+    # Insertar system prompts predefinidos si no existen
+    cursor.execute('SELECT COUNT(*) FROM system_prompts')
+    if cursor.fetchone()[0] == 0:
+        default_prompts = [
+            ('Asistente General', 'Asistente útil y amigable', 'Eres un asistente útil y amigable. Responde de manera clara y concisa.', True),
+            ('Soporte Técnico', 'Especialista en soporte técnico', 'Eres un especialista en soporte técnico. Ayuda a resolver problemas técnicos de manera clara y paso a paso.', False),
+            ('Programador', 'Experto en programación', 'Eres un experto en programación. Ayuda con código, debugging y mejores prácticas. Proporciona ejemplos de código cuando sea necesario.', False),
+            ('Escritor', 'Asistente de escritura', 'Eres un asistente de escritura. Ayuda a redactar, editar y mejorar textos. Mantén un tono profesional y creativo.', False),
+            ('Analista de Datos', 'Especialista en análisis de datos', 'Eres un especialista en análisis de datos. Ayuda a interpretar datos, crear visualizaciones y extraer insights.', False),
+        ]
+        
+        for name, description, prompt, is_default in default_prompts:
+            cursor.execute('''
+                INSERT INTO system_prompts (name, description, prompt, is_default)
+                VALUES (?, ?, ?, ?)
+            ''', (name, description, prompt, is_default))
     
     conn.commit()
     conn.close()
@@ -153,16 +263,22 @@ def get_conversations():
     conn.close()
     return conversations
 
-def create_conversation(title='Nueva conversación', model='mistral:latest'):
+def create_conversation(title='Nueva conversación', model='mistral:latest', system_prompt=None, temperature=0.7):
     """Crear una nueva conversación"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
+    if system_prompt is None:
+        # Obtener el system prompt por defecto
+        cursor.execute('SELECT prompt FROM system_prompts WHERE is_default = 1 LIMIT 1')
+        result = cursor.fetchone()
+        system_prompt = result[0] if result else 'Eres un asistente útil y amigable.'
+    
     now = datetime.now().isoformat()
     cursor.execute('''
-        INSERT INTO conversations (title, model, created_at, updated_at)
-        VALUES (?, ?, ?, ?)
-    ''', (title, model, now, now))
+        INSERT INTO conversations (title, model, system_prompt, temperature, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (title, model, system_prompt, temperature, now, now))
     
     conversation_id = cursor.lastrowid
     conn.commit()
@@ -288,8 +404,10 @@ def api_create_conversation(request):
         data = request.json
         title = data.get('title', 'Nueva conversación')
         model = data.get('model', 'mistral:latest')
+        system_prompt = data.get('system_prompt')
+        temperature = data.get('temperature', 0.7)
         
-        conversation_id = create_conversation(title, model)
+        conversation_id = create_conversation(title, model, system_prompt, temperature)
         return Response({
             'success': True,
             'conversation_id': conversation_id
@@ -346,12 +464,27 @@ def api_chat(request):
         message = data.get('message', '')
         conversation_id = data.get('conversation_id')
         
+        # Obtener system prompt y temperature de la conversación
+        system_prompt = None
+        temperature = 0.7
+        
+        if conversation_id:
+            conversation = get_conversation(conversation_id)
+            if conversation:
+                system_prompt = conversation.get('system_prompt')
+                temperature = conversation.get('temperature', 0.7)
+        
         # Guardar mensaje del usuario
         if conversation_id:
             save_message(conversation_id, 'user', message)
         
+        # Construir prompt con system prompt
+        full_prompt = message
+        if system_prompt:
+            full_prompt = f"{system_prompt}\n\nUsuario: {message}"
+        
         # Generar respuesta
-        response = ollama_service.simple_generate(message, model)
+        response = ollama_service.simple_generate(full_prompt, model)
         
         # Guardar respuesta del bot
         if conversation_id:
@@ -365,6 +498,52 @@ def api_chat(request):
         return Response({
             'error': str(e)
         }, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/system-prompts')
+def api_system_prompts(request):
+    """Obtener todos los system prompts"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT * FROM system_prompts ORDER BY is_default DESC, name ASC')
+        prompts = [dict(row) for row in cursor.fetchall()]
+        
+        conn.close()
+        return Response({'prompts': prompts}, headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        return Response({'error': str(e)}, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/tools/execute', methods=['POST'])
+def api_execute_tool(request):
+    """Ejecutar una tool del agente"""
+    try:
+        data = request.json
+        tool_name = data.get('tool')
+        params = data.get('params', {})
+        
+        if tool_name == 'web_scrape':
+            url = params.get('url')
+            if not url:
+                return Response({'error': 'URL requerida'}, status_code=400, headers={'Content-Type': 'application/json'})
+            result = agent_tools.web_scrape(url)
+        elif tool_name == 'execute_command':
+            command = params.get('command')
+            if not command:
+                return Response({'error': 'Comando requerido'}, status_code=400, headers={'Content-Type': 'application/json'})
+            result = agent_tools.execute_command(command)
+        elif tool_name == 'get_system_info':
+            result = agent_tools.get_system_info()
+        else:
+            return Response({'error': 'Tool no encontrada'}, status_code=400, headers={'Content-Type': 'application/json'})
+        
+        return Response({
+            'success': True,
+            'result': result
+        }, headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        return Response({'error': str(e)}, status_code=500, headers={'Content-Type': 'application/json'})
 
 # Inicializar base de datos al iniciar
 init_db()

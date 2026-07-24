@@ -9,7 +9,7 @@
     <style>
         body {
             background: linear-gradient(135deg, #2c001e 0%, #5e2750 100%);
-            min-height: 100vh;
+            height: 100vh;
             margin: 0;
             padding: 0;
             display: flex;
@@ -89,6 +89,8 @@
             flex: 1;
             display: flex;
             flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
         }
         .chat-header {
             background: rgba(0, 0, 0, 0.2);
@@ -203,17 +205,22 @@
             <div id="status-indicator" class="status-indicator status-error">
                 <span class="loading-spinner"></span> Verificando Ollama...
             </div>
-            <select id="model-select" class="model-select" style="margin-left: auto;">
-                <option value="mistral:latest">mistral:latest</option>
-                <option value="llama2">llama2</option>
-                <option value="phi">phi</option>
-            </select>
+            <div style="display: flex; gap: 8px; align-items: center; margin-left: auto;">
+                <select id="system-prompt-select" class="model-select" style="font-size: 12px;">
+                    <option value="">Asistente General</option>
+                </select>
+                <select id="model-select" class="model-select">
+                    <option value="mistral:latest">mistral:latest</option>
+                    <option value="llama2">llama2</option>
+                    <option value="phi">phi</option>
+                </select>
+            </div>
         </div>
 
         <!-- Chat Messages -->
         <div class="chat-messages" id="chat-messages">
             <div class="message bot">
-                <div class="message-content">¡Hola! Soy Ollama Chat. Selecciona un modelo y comienza a chatear con IA.</div>
+                <div class="message-content">¡Hola! Soy UTAgent IA. Selecciona un system prompt, un modelo y comienza a chatear con IA.</div>
             </div>
         </div>
 
@@ -235,9 +242,34 @@
         let currentConversationId = null;
         let chatHistory = [];
 
+        // Cargar system prompts
+        function loadSystemPrompts() {
+            fetch('/_app/utagent_ia/api/system-prompts')
+                .then(response => response.json())
+                .then(data => {
+                    const select = document.getElementById('system-prompt-select');
+                    select.innerHTML = '';
+                    
+                    if (data.prompts && data.prompts.length > 0) {
+                        data.prompts.forEach(prompt => {
+                            const option = document.createElement('option');
+                            option.value = prompt.prompt;
+                            option.textContent = prompt.name;
+                            if (prompt.is_default) {
+                                option.selected = true;
+                            }
+                            select.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error cargando system prompts:', error);
+                });
+        }
+
         // Verificar estado de Ollama
         function checkStatus() {
-            fetch('/_app/ollama_chat/api/status')
+            fetch('/_app/utagent_ia/api/status')
                 .then(response => response.json())
                 .then(data => {
                     const statusDiv = document.getElementById('status-indicator');
@@ -270,7 +302,7 @@
 
         // Cargar conversaciones
         function loadConversations() {
-            fetch('/_app/ollama_chat/api/conversations')
+            fetch('/_app/utagent_ia/api/conversations')
                 .then(response => response.json())
                 .then(data => {
                     const listDiv = document.getElementById('conversations-list');
@@ -307,13 +339,15 @@
         // Crear nueva conversación
         function createNewConversation() {
             const model = document.getElementById('model-select').value;
+            const systemPrompt = document.getElementById('system-prompt-select').value;
             
-            fetch('/_app/ollama_chat/api/conversations/create', {
+            fetch('/_app/utagent_ia/api/conversations/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     title: 'Nueva conversación',
-                    model: model
+                    model: model,
+                    system_prompt: systemPrompt
                 })
             })
             .then(response => response.json())
@@ -333,7 +367,7 @@
         function loadConversation(conversationId) {
             currentConversationId = conversationId;
             
-            fetch(`/_app/ollama_chat/api/conversations/${conversationId}`)
+            fetch(`/_app/utagent_ia/api/conversations/${conversationId}`)
                 .then(response => response.json())
                 .then(data => {
                     // Actualizar modelo
@@ -360,7 +394,7 @@
         function deleteConversation(conversationId) {
             if (!confirm('¿Eliminar esta conversación?')) return;
             
-            fetch(`/_app/ollama_chat/api/conversations/${conversationId}/delete`, {
+            fetch(`/_app/utagent_ia/api/conversations/${conversationId}/delete`, {
                 method: 'DELETE'
             })
             .then(response => response.json())
@@ -406,7 +440,7 @@
             document.getElementById('chat-messages').appendChild(loadingDiv);
             
             // Enviar a la API
-            fetch('/_app/ollama_chat/api/chat', {
+            fetch('/_app/utagent_ia/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -454,6 +488,7 @@
         }
 
         // Inicializar
+        loadSystemPrompts();
         checkStatus();
         loadConversations();
         setInterval(checkStatus, 10000); // Verificar cada 10 segundos

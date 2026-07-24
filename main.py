@@ -312,7 +312,8 @@ async def app_temp_files(request, app_name, path):
     return Response(content, headers={'Content-Type': content_type})
 
 # Cargar apps instaladas
-def cargar_apps():
+def cargar_apps(category_filter=None):
+    """Cargar apps, opcionalmente filtradas por categoría"""
     apps = []
     if os.path.exists(APPS_DIR):
         for app_folder in os.listdir(APPS_DIR):
@@ -322,9 +323,27 @@ def cargar_apps():
                     app_info = json.load(f)
                     # Ocultar apps marcadas como hidden
                     if not app_info.get('hidden', False):
+                        # Filtrar por categoría si se especifica
+                        if category_filter:
+                            app_category = app_info.get('category', 'general')
+                            if app_category != category_filter:
+                                continue
                         app_info['folder'] = app_folder
                         apps.append(app_info)
     return apps
+
+def get_app_categories():
+    """Obtener todas las categorías disponibles"""
+    categories = {
+        'ai': {'name': 'IA', 'icon': '🤖', 'description': 'Inteligencia Artificial'},
+        'system': {'name': 'Sistema', 'icon': '⚙️', 'description': 'Herramientas del sistema'},
+        'tools': {'name': 'Herramientas', 'icon': '🔧', 'description': 'Utilidades'},
+        'productivity': {'name': 'Productividad', 'icon': '📊', 'description': 'Productividad'},
+        'media': {'name': 'Multimedia', 'icon': '🎬', 'description': 'Multimedia'},
+        'communication': {'name': 'Comunicación', 'icon': '💬', 'description': 'Comunicación'},
+        'general': {'name': 'General', 'icon': '📱', 'description': 'General'}
+    }
+    return categories
 
 def cargar_app_manifest(nombre):
     manifest_path = os.path.join(APPS_DIR, nombre, 'app.json')
@@ -336,9 +355,17 @@ def cargar_app_manifest(nombre):
 # Dashboard principal
 @app.route('/')
 async def index(request):
-    apps = cargar_apps()
-    html_content = render_template('index.html', apps=apps)
+    category_filter = request.args.get('category')
+    apps = cargar_apps(category_filter)
+    categories = get_app_categories()
+    html_content = render_template('index.html', apps=apps, categories=categories, current_category=category_filter)
     return Response(html_content, headers={'Content-Type': 'text/html; charset=utf-8'})
+
+# API para obtener categorías
+@app.route('/api/categories')
+async def api_categories(request):
+    categories = get_app_categories()
+    return Response(json.dumps(categories), headers={'Content-Type': 'application/json'})
 
 # Ver detalles de una app
 @app.route('/app/<nombre>')
@@ -573,23 +600,25 @@ async def crear_app(request):
     if request.method == 'POST':
         nombre = request.form.get('nombre')
         descripcion = request.form.get('descripcion')
+        categoria = request.form.get('categoria', 'general')
         librerias = request.form.get('librerias')
         icono_file = request.files.get('icono')
-        
+
         # Crear estructura básica
         app_folder = os.path.join(APPS_DIR, nombre.lower().replace(' ', '_'))
         os.makedirs(app_folder)
-        
+
         # Procesar librerías
         requirements = []
         if librerias:
             # Separar por líneas y filtrar líneas vacías
             requirements = [lib.strip() for lib in librerias.split('\n') if lib.strip()]
-        
+
         # Crear app.json simple
         app_manifest = {
             'name': nombre,
             'description': descripcion,
+            'category': categoria,
             'author': 'Usuario',
             'version': '1.0'
         }
