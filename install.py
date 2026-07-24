@@ -187,6 +187,8 @@ def create_virtualenv():
                 print_success("Entorno virtual creado con --without-pip")
                 return True
             
+            print_error(f"Error con --without-pip: {result.stderr}")
+            
             # Fallback a método normal
             print_step("Intentando con python3 -m venv normal...")
             result = subprocess.run([sys.executable, "-m", "venv", str(INSTALL_DIR / "venv")], 
@@ -195,6 +197,9 @@ def create_virtualenv():
             if result.returncode == 0:
                 print_success("Entorno virtual creado con método normal")
                 return True
+            
+            print_error(f"Error con método normal: {result.stderr}")
+            return False
         else:
             # Linux/Windows - usar método normal
             result = subprocess.run([sys.executable, "-m", "venv", str(INSTALL_DIR / "venv")], 
@@ -203,9 +208,9 @@ def create_virtualenv():
             if result.returncode == 0:
                 print_success("Entorno virtual creado")
                 return True
-        
-        print_error(f"Error creando entorno virtual: {result.stderr}")
-        return False
+            
+            print_error(f"Error creando entorno virtual: {result.stderr}")
+            return False
     except Exception as e:
         print_error(f"Error creando entorno virtual: {e}")
         return False
@@ -329,13 +334,13 @@ Type=Application
 Categories=Utility;
 """.format(install_dir=INSTALL_DIR)
         
-        desktop_file = desktop_dir / "utpyapps.desktop"
+        desktop_file = desktop_dir / "UTPyApps.desktop"
         with open(desktop_file, 'w') as f:
             f.write(desktop_content)
         
         # Copiar icono si existe
         icon_source = INSTALL_DIR / "static" / "images" / "UTPyApps.png"
-        icon_dest = icons_dir / "utpyapps.png"
+        icon_dest = icons_dir / "UTPyApps.png"
         
         if icon_source.exists():
             shutil.copy(icon_source, icon_dest)
