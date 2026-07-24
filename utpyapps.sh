@@ -39,8 +39,8 @@ open_url() {
 
     if [ "$platform" = "ut" ]; then
         # Ubuntu Touch - usar lomiri-app-launch
-        su - phablet -c "lomiri-app-launch --desktop-file-hint=/usr/share/morph-browser/morph-browser.desktop $url" 2>/dev/null \
-        || su - phablet -c "morph-browser $url" 2>/dev/null \
+        lomiri-app-launch morph-browser "$url" 2>/dev/null \
+        || morph-browser "$url" 2>/dev/null \
         || echo "No se pudo abrir el navegador en Ubuntu Touch"
     else
         # Linux - usar xdg-open
