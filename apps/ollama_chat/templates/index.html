@@ -12,11 +12,111 @@
             min-height: 100vh;
             margin: 0;
             padding: 0;
+            display: flex;
         }
-        .chat-container {
-            height: calc(100vh - 140px);
+        .sidebar {
+            width: 280px;
+            background: rgba(0, 0, 0, 0.3);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
             display: flex;
             flex-direction: column;
+            padding: 16px;
+        }
+        .sidebar.collapsed {
+            width: 60px;
+        }
+        .sidebar-header {
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .new-chat-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #E95420 0%, #77216F 100%);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+        .new-chat-btn:hover {
+            opacity: 0.9;
+        }
+        .conversations-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .conversation-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .conversation-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .conversation-item.active {
+            background: rgba(233, 84, 32, 0.2);
+            border-color: rgba(233, 84, 32, 0.5);
+        }
+        .conversation-title {
+            color: white;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        .conversation-preview {
+            color: #AEA79F;
+            font-size: 11px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 4px;
+        }
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-header {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .model-select {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        .model-select option {
+            background: #2c001e;
+            color: white;
+        }
+        .toggle-sidebar-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 8px;
         }
         .chat-messages {
             flex: 1;
@@ -33,7 +133,7 @@
             background: linear-gradient(135deg, #E95420 0%, #77216F 100%);
             margin-left: auto;
         }
-        .message.assistant {
+        .message.bot {
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
@@ -61,124 +161,90 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .model-select {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: white;
+        .status-indicator {
             padding: 8px 12px;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 12px;
         }
-        .model-select option {
-            background: #2c001e;
-            color: white;
+        .status-running {
+            background: rgba(0, 255, 0, 0.2);
+            color: #00ff00;
+        }
+        .status-error {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
         }
     </style>
 </head>
 <body>
-    <!-- Topbar -->
-    <div class="topbar">
-        <div class="w3-container w3-padding-8">
-            <div class="w3-row">
-                <div class="w3-col s6">
-                    <span style="color: #E95420; font-size: 14px; font-weight: 500;">🤖 Ollama Chat</span>
-                </div>
-                <div class="w3-col s6 w3-right-align">
-                    <a href="/" class="w3-text-white" style="font-size: 12px; text-decoration: none;">← Dashboard</a>
-                </div>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="color: #E95420; font-size: 16px; font-weight: 500;">🤖 Ollama Chat</span>
             </div>
+            <button onclick="createNewConversation()" class="new-chat-btn">
+                + Nueva Conversación
+            </button>
+        </div>
+        <div class="conversations-list" id="conversations-list">
+            <!-- Conversaciones se cargarán aquí -->
+        </div>
+        <div style="padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+            <a href="/" style="color: #AEA79F; text-decoration: none; font-size: 12px;">← Dashboard</a>
         </div>
     </div>
 
     <!-- Main Content -->
-    <main class="w3-container" style="padding-top: 70px; padding-bottom: 16px;">
-        <!-- Status Card -->
-        <div class="w3-card w3-round-large" style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px;">
-            <div class="w3-padding" style="padding: 12px 16px;">
-                <div class="w3-row" style="align-items: center;">
-                    <div class="w3-col s8">
-                        <div id="ollama-status" style="color: #AEA79F; font-size: 12px;">
-                            <span class="loading-spinner"></span> Verificando Ollama...
-                        </div>
-                    </div>
-                    <div class="w3-col s4 w3-right-align">
-                        <select id="model-select" class="model-select" style="width: 100%;">
-                            <option value="phi">phi</option>
-                            <option value="llama3:8b">llama3:8b</option>
-                            <option value="gemma:2b">gemma:2b</option>
-                            <option value="mistral:7b">mistral:7b</option>
-                        </select>
-                    </div>
-                </div>
+    <div class="main-content">
+        <!-- Header -->
+        <div class="chat-header">
+            <button onclick="toggleSidebar()" class="toggle-sidebar-btn">☰</button>
+            <div id="status-indicator" class="status-indicator status-error">
+                <span class="loading-spinner"></span> Verificando Ollama...
+            </div>
+            <select id="model-select" class="model-select" style="margin-left: auto;">
+                <option value="mistral:latest">mistral:latest</option>
+                <option value="llama2">llama2</option>
+                <option value="phi">phi</option>
+            </select>
+        </div>
+
+        <!-- Chat Messages -->
+        <div class="chat-messages" id="chat-messages">
+            <div class="message bot">
+                <div class="message-content">¡Hola! Soy Ollama Chat. Selecciona un modelo y comienza a chatear con IA.</div>
             </div>
         </div>
 
-        <!-- Setup Card (si Ollama no está corriendo) -->
-        <div id="setup-card" class="w3-card w3-round-large" style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px; display: none;">
-            <div class="w3-padding" style="padding: 16px;">
-                <h4 style="color: white; font-size: 14px; margin: 0 0 12px 0;">⚙️ Configurar Ollama</h4>
-                <p style="color: #AEA79F; font-size: 12px; margin: 0 0 12px 0;">
-                    Ollama no está corriendo. Instálalo y descarga modelos para usar el chat.
-                </p>
-                <div style="margin-bottom: 12px;">
-                    <label style="color: #AEA79F; font-size: 12px; display: block; margin-bottom: 4px;">ID del Dispositivo (ADB) - Opcional (dejar vacío para modo local):</label>
-                    <input type="text" id="device-id-input" class="w3-input w3-round-large" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; font-size: 12px;" placeholder="Ej: 1f7087000408 (vacío = local)">
-                </div>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <button onclick="installOllama()" class="w3-btn w3-round-large" style="background: linear-gradient(135deg, #E95420 0%, #77216F 100%); color: white; font-size: 12px; padding: 8px 16px;">
-                        📥 Instalar Ollama
-                    </button>
-                    <button onclick="startOllama()" class="w3-btn w3-round-large" style="background: rgba(255, 255, 255, 0.1); color: white; font-size: 12px; padding: 8px 16px;">
-                        ▶️ Iniciar Ollama
-                    </button>
-                    <button onclick="pullModel()" class="w3-btn w3-round-large" style="background: rgba(255, 255, 255, 0.1); color: white; font-size: 12px; padding: 8px 16px;">
-                        📦 Descargar Modelo
-                    </button>
-                </div>
-                <div id="setup-status" style="margin-top: 12px; font-size: 11px; color: #AEA79F;"></div>
+        <!-- Input Area -->
+        <div class="input-area">
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="message-input" class="w3-input w3-round-large" 
+                       style="flex: 1; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; font-size: 14px;" 
+                       placeholder="Escribe tu mensaje..." onkeypress="if(event.key === 'Enter') sendMessage()">
+                <button onclick="sendMessage()" class="w3-btn w3-round-large" 
+                        style="background: linear-gradient(135deg, #E95420 0%, #77216F 100%); color: white; font-size: 13px; padding: 12px 24px;">
+                    Enviar
+                </button>
             </div>
         </div>
-
-        <!-- Chat Container -->
-        <div class="w3-card w3-round-large" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1);">
-            <div class="chat-container">
-                <div id="chat-messages" class="chat-messages">
-                    <div class="message assistant">
-                        <div class="message-content">¡Hola! Soy Ollama Chat. Selecciona un modelo y comienza a chatear con IA.</div>
-                    </div>
-                </div>
-                <div class="input-area">
-                    <div class="w3-row" style="align-items: center;">
-                        <div class="w3-col s10">
-                            <input type="text" id="message-input" class="w3-input w3-round-large" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; font-size: 13px;" placeholder="Escribe tu mensaje..." onkeypress="if(event.key === 'Enter') sendMessage()">
-                        </div>
-                        <div class="w3-col s2 w3-right-align">
-                            <button onclick="sendMessage()" class="w3-btn w3-round-large" style="background: linear-gradient(135deg, #E95420 0%, #77216F 100%); color: white; font-size: 12px; padding: 8px 16px; width: 100%;">
-                                Enviar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
+    </div>
 
     <script>
+        let currentConversationId = null;
         let chatHistory = [];
-        let currentDeviceId = null;
 
         // Verificar estado de Ollama
         function checkStatus() {
             fetch('/_app/ollama_chat/api/status')
                 .then(response => response.json())
                 .then(data => {
-                    const statusDiv = document.getElementById('ollama-status');
-                    const setupCard = document.getElementById('setup-card');
+                    const statusDiv = document.getElementById('status-indicator');
                     
                     if (data.status === 'running') {
+                        statusDiv.className = 'status-indicator status-running';
                         statusDiv.innerHTML = '✅ Ollama corriendo';
-                        statusDiv.style.color = '#00ff00';
-                        setupCard.style.display = 'none';
                         
                         // Actualizar lista de modelos
                         if (data.models && data.models.length > 0) {
@@ -192,15 +258,124 @@
                             });
                         }
                     } else {
+                        statusDiv.className = 'status-indicator status-error';
                         statusDiv.innerHTML = '❌ Ollama no corriendo';
-                        statusDiv.style.color = '#e74c3c';
-                        setupCard.style.display = 'block';
                     }
                 })
                 .catch(error => {
-                    document.getElementById('ollama-status').innerHTML = '❌ Error: ' + error.message;
-                    document.getElementById('setup-card').style.display = 'block';
+                    document.getElementById('status-indicator').className = 'status-indicator status-error';
+                    document.getElementById('status-indicator').innerHTML = '❌ Error: ' + error.message;
                 });
+        }
+
+        // Cargar conversaciones
+        function loadConversations() {
+            fetch('/_app/ollama_chat/api/conversations')
+                .then(response => response.json())
+                .then(data => {
+                    const listDiv = document.getElementById('conversations-list');
+                    listDiv.innerHTML = '';
+                    
+                    if (data.conversations && data.conversations.length > 0) {
+                        data.conversations.forEach(conv => {
+                            const item = document.createElement('div');
+                            item.className = 'conversation-item';
+                            if (conv.id === currentConversationId) {
+                                item.classList.add('active');
+                            }
+                            item.innerHTML = `
+                                <div style="display: flex; justify-content: space-between; align-items: start;">
+                                    <div style="flex: 1;">
+                                        <div class="conversation-title">${conv.title}</div>
+                                        <div class="conversation-preview">${conv.preview || 'Sin mensajes'}</div>
+                                    </div>
+                                    <button onclick="event.stopPropagation(); deleteConversation(${conv.id})" class="delete-btn">🗑️</button>
+                                </div>
+                            `;
+                            item.onclick = () => loadConversation(conv.id);
+                            listDiv.appendChild(item);
+                        });
+                    } else {
+                        listDiv.innerHTML = '<div style="color: #AEA79F; font-size: 12px; text-align: center; padding: 20px;">No hay conversaciones</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error cargando conversaciones:', error);
+                });
+        }
+
+        // Crear nueva conversación
+        function createNewConversation() {
+            const model = document.getElementById('model-select').value;
+            
+            fetch('/_app/ollama_chat/api/conversations/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    title: 'Nueva conversación',
+                    model: model
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentConversationId = data.conversation_id;
+                    loadConversations();
+                    clearChat();
+                }
+            })
+            .catch(error => {
+                console.error('Error creando conversación:', error);
+            });
+        }
+
+        // Cargar conversación
+        function loadConversation(conversationId) {
+            currentConversationId = conversationId;
+            
+            fetch(`/_app/ollama_chat/api/conversations/${conversationId}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Actualizar modelo
+                    if (data.model) {
+                        document.getElementById('model-select').value = data.model;
+                    }
+                    
+                    // Cargar mensajes
+                    clearChat();
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach(msg => {
+                            addMessage(msg.role, msg.content);
+                        });
+                    }
+                    
+                    loadConversations();
+                })
+                .catch(error => {
+                    console.error('Error cargando conversación:', error);
+                });
+        }
+
+        // Eliminar conversación
+        function deleteConversation(conversationId) {
+            if (!confirm('¿Eliminar esta conversación?')) return;
+            
+            fetch(`/_app/ollama_chat/api/conversations/${conversationId}/delete`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (currentConversationId === conversationId) {
+                        currentConversationId = null;
+                        clearChat();
+                    }
+                    loadConversations();
+                }
+            })
+            .catch(error => {
+                console.error('Error eliminando conversación:', error);
+            });
         }
 
         // Enviar mensaje
@@ -211,14 +386,21 @@
             
             if (!message) return;
             
+            // Si no hay conversación, crear una
+            if (!currentConversationId) {
+                createNewConversation();
+                // Esperar a que se cree la conversación
+                setTimeout(() => sendMessage(), 100);
+                return;
+            }
+            
             // Agregar mensaje del usuario
             addMessage('user', message);
-            chatHistory.push({ role: 'user', content: message });
             input.value = '';
             
             // Mostrar indicador de carga
             const loadingDiv = document.createElement('div');
-            loadingDiv.className = 'message assistant';
+            loadingDiv.className = 'message bot';
             loadingDiv.id = 'loading-message';
             loadingDiv.innerHTML = '<div class="message-content"><span class="loading-spinner"></span> Pensando...</div>';
             document.getElementById('chat-messages').appendChild(loadingDiv);
@@ -230,7 +412,7 @@
                 body: JSON.stringify({
                     model: model,
                     message: message,
-                    history: chatHistory
+                    conversation_id: currentConversationId
                 })
             })
             .then(response => response.json())
@@ -239,15 +421,14 @@
                 document.getElementById('loading-message').remove();
                 
                 if (data.response) {
-                    addMessage('assistant', data.response);
-                    chatHistory.push({ role: 'assistant', content: data.response });
+                    addMessage('bot', data.response);
                 } else if (data.error) {
-                    addMessage('assistant', 'Error: ' + data.error);
+                    addMessage('bot', 'Error: ' + data.error);
                 }
             })
             .catch(error => {
                 document.getElementById('loading-message').remove();
-                addMessage('assistant', 'Error: ' + error.message);
+                addMessage('bot', 'Error: ' + error.message);
             });
         }
 
@@ -261,98 +442,20 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        // Instalar Ollama
-        function installOllama() {
-            const statusDiv = document.getElementById('setup-status');
-            statusDiv.innerHTML = '<span class="loading-spinner"></span> Instalando Ollama...';
-            
-            // Obtener device_id de ADB Manager si está disponible
-            currentDeviceId = getDeviceId();
-            
-            fetch('/_app/ollama_chat/api/install', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ device_id: currentDeviceId })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    statusDiv.innerHTML = '✅ Ollama instalado. Inicia el servidor.';
-                } else {
-                    statusDiv.innerHTML = '❌ Error: ' + data.error;
-                }
-            })
-            .catch(error => {
-                statusDiv.innerHTML = '❌ Error: ' + error.message;
-            });
+        // Limpiar chat
+        function clearChat() {
+            document.getElementById('chat-messages').innerHTML = '';
         }
 
-        // Iniciar Ollama
-        function startOllama() {
-            const statusDiv = document.getElementById('setup-status');
-            statusDiv.innerHTML = '<span class="loading-spinner"></span> Iniciando Ollama...';
-            
-            currentDeviceId = getDeviceId();
-            
-            fetch('/_app/ollama_chat/api/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ device_id: currentDeviceId })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    statusDiv.innerHTML = '✅ Ollama iniciado. Verificando estado...';
-                    setTimeout(checkStatus, 2000);
-                } else {
-                    statusDiv.innerHTML = '❌ Error: ' + data.error;
-                }
-            })
-            .catch(error => {
-                statusDiv.innerHTML = '❌ Error: ' + error.message;
-            });
+        // Toggle sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
         }
 
-        // Descargar modelo
-        function pullModel() {
-            const model = document.getElementById('model-select').value;
-            const statusDiv = document.getElementById('setup-status');
-            statusDiv.innerHTML = `<span class="loading-spinner"></span> Descargando ${model}...`;
-            
-            currentDeviceId = getDeviceId();
-            
-            fetch('/_app/ollama_chat/api/pull', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: model, device_id: currentDeviceId })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    statusDiv.innerHTML = '✅ Modelo descargado. Verificando estado...';
-                    setTimeout(checkStatus, 2000);
-                } else {
-                    statusDiv.innerHTML = '❌ Error: ' + data.error;
-                }
-            })
-            .catch(error => {
-                statusDiv.innerHTML = '❌ Error: ' + error.message;
-            });
-        }
-
-        // Obtener device_id de ADB Manager
-        function getDeviceId() {
-            // Prioridad: campo de entrada > URL > localStorage
-            const input = document.getElementById('device-id-input');
-            if (input && input.value.trim()) {
-                return input.value.trim();
-            }
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('device_id') || localStorage.getItem('adb_device_id') || null;
-        }
-
-        // Verificar estado al cargar
+        // Inicializar
         checkStatus();
+        loadConversations();
         setInterval(checkStatus, 10000); // Verificar cada 10 segundos
     </script>
 </body>

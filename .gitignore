@@ -56,3 +56,6 @@ Thumbs.db
 main_*.py
 *_old.*
 *_broken.*
+
+# Archivos PID
+*.pid

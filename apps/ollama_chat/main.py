@@ -1,14 +1,15 @@
 # Ollama Chat - Chat con modelos de IA usando Ollama
 # Name: Ollama Chat
-# Description: Chat con modelos de IA usando Ollama en Ubuntu Touch
+# Description: Chat con modelos de IA usando Ollama - Sistema de conversaciones con historial
 # Author: UTPyApps
-# Version: 1.0.0
+# Version: 2.0.0
 
 from microdot import Microdot, Response
 from jinja2 import Environment, FileSystemLoader
 import os
-import subprocess
+import sqlite3
 import json
+from datetime import datetime
 
 try:
     from ollama import Client
@@ -23,13 +24,208 @@ Response.default_content_type = 'text/html'
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 app_env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
 
+# Configuración de base de datos
+DB_PATH = os.path.join(os.path.dirname(__file__), 'chat.db')
+
 # Configuración de Ollama
 OLLAMA_HOST = 'localhost:11434'
 if OLLAMA_AVAILABLE:
     ollama_client = Client(host=OLLAMA_HOST)
 
+class OllamaService:
+    """Servicio para comunicación con Ollama (basado en ollama_online)"""
+    
+    def __init__(self, base_url=None, model=None):
+        self.base_url = base_url or OLLAMA_HOST
+        self.model = model or 'mistral:latest'
+        
+        if OLLAMA_AVAILABLE:
+            self.client = Client(host=self.base_url)
+        else:
+            self.client = None
+    
+    def simple_generate(self, prompt, model=None):
+        """Generación simple sin streaming"""
+        if not OLLAMA_AVAILABLE:
+            return "Error: Librería ollama no instalada"
+        
+        model = model or self.model
+        
+        try:
+            response = self.client.generate(
+                model=model,
+                prompt=prompt
+            )
+            return response.get('response', 'No response received')
+        except Exception as e:
+            return f"Error: {str(e)}"
+    
+    def stream_generate(self, prompt, model=None):
+        """Generación con streaming"""
+        if not OLLAMA_AVAILABLE:
+            yield "Error: Librería ollama no instalada"
+            return
+        
+        model = model or self.model
+        
+        try:
+            for response in self.client.generate(
+                model=model,
+                prompt=prompt,
+                stream=True
+            ):
+                if 'response' in response:
+                    yield response['response']
+                
+                if response.get('done', False):
+                    break
+        except Exception as e:
+            yield f"Error: {str(e)}"
+    
+    def list_models(self):
+        """Listar modelos disponibles"""
+        if not OLLAMA_AVAILABLE:
+            return []
+        
+        try:
+            models = self.client.list()
+            # La librería ollama devuelve un objeto con atributo 'models'
+            if hasattr(models, 'models'):
+                return [{'name': model.model} for model in models.models]
+            elif isinstance(models, dict) and 'models' in models:
+                return models['models']
+            else:
+                return []
+        except Exception as e:
+            print(f"Error listando modelos: {e}")
+            return []
+
+# Instancia global del servicio
+ollama_service = OllamaService()
+
+# --- Base de Datos ---
+
+def init_db():
+    """Inicializar base de datos SQLite"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Tabla de conversaciones
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT DEFAULT 'Nueva conversación',
+            model TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    ''')
+    
+    # Tabla de mensajes
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            conversation_id INTEGER,
+            role TEXT,
+            content TEXT,
+            timestamp TEXT,
+            FOREIGN KEY (conversation_id) REFERENCES conversations (id) ON DELETE CASCADE
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+def get_conversations():
+    """Obtener todas las conversaciones"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT c.*, 
+               (SELECT content FROM messages WHERE conversation_id = c.id ORDER BY timestamp ASC LIMIT 1) as preview
+        FROM conversations c
+        ORDER BY c.updated_at DESC
+    ''')
+    
+    conversations = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return conversations
+
+def create_conversation(title='Nueva conversación', model='mistral:latest'):
+    """Crear una nueva conversación"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    now = datetime.now().isoformat()
+    cursor.execute('''
+        INSERT INTO conversations (title, model, created_at, updated_at)
+        VALUES (?, ?, ?, ?)
+    ''', (title, model, now, now))
+    
+    conversation_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    return conversation_id
+
+def get_conversation(conversation_id):
+    """Obtener una conversación específica"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM conversations WHERE id = ?', (conversation_id,))
+    conversation = cursor.fetchone()
+    
+    if conversation:
+        conversation = dict(conversation)
+        
+        # Obtener mensajes
+        cursor.execute('''
+            SELECT * FROM messages 
+            WHERE conversation_id = ? 
+            ORDER BY timestamp ASC
+        ''', (conversation_id,))
+        
+        conversation['messages'] = [dict(row) for row in cursor.fetchall()]
+    
+    conn.close()
+    return conversation
+
+def delete_conversation(conversation_id):
+    """Eliminar una conversación"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('DELETE FROM conversations WHERE id = ?', (conversation_id,))
+    
+    conn.commit()
+    conn.close()
+
+def save_message(conversation_id, role, content):
+    """Guardar un mensaje"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    now = datetime.now().isoformat()
+    cursor.execute('''
+        INSERT INTO messages (conversation_id, role, content, timestamp)
+        VALUES (?, ?, ?, ?)
+    ''', (conversation_id, role, content, now))
+    
+    # Actualizar timestamp de conversación
+    cursor.execute('''
+        UPDATE conversations SET updated_at = ? WHERE id = ?
+    ''', (now, conversation_id))
+    
+    conn.commit()
+    conn.close()
+
+# --- Rutas ---
+
 @app.route('/')
-@app.route('/index.html')
 def home(request):
     """Página principal del chat"""
     template = app_env.get_template('index.html')
@@ -49,10 +245,10 @@ def api_status(request):
         }, headers={'Content-Type': 'application/json'})
     
     try:
-        models = ollama_client.list()
+        models = ollama_service.list_models()
         return Response({
             'status': 'running',
-            'models': models.get('models', [])
+            'models': models
         }, headers={'Content-Type': 'application/json'})
     except Exception as e:
         return Response({
@@ -69,12 +265,72 @@ def api_models(request):
         }, status_code=500, headers={'Content-Type': 'application/json'})
     
     try:
-        models = ollama_client.list()
-        return Response(models, headers={'Content-Type': 'application/json'})
+        models = ollama_service.list_models()
+        return Response({'models': models}, headers={'Content-Type': 'application/json'})
     except Exception as e:
         return Response({
             'error': str(e)
         }, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/conversations')
+def api_conversations(request):
+    """Obtener todas las conversaciones"""
+    try:
+        conversations = get_conversations()
+        return Response({'conversations': conversations}, headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        return Response({'error': str(e)}, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/conversations/create', methods=['POST'])
+def api_create_conversation(request):
+    """Crear una nueva conversación"""
+    try:
+        data = request.json
+        title = data.get('title', 'Nueva conversación')
+        model = data.get('model', 'mistral:latest')
+        
+        conversation_id = create_conversation(title, model)
+        return Response({
+            'success': True,
+            'conversation_id': conversation_id
+        }, headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        return Response({'error': str(e)}, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/conversations/<int:conversation_id>')
+def api_get_conversation(request, conversation_id):
+    """Obtener una conversación específica"""
+    try:
+        conversation = get_conversation(conversation_id)
+        if conversation:
+            return Response(conversation, headers={'Content-Type': 'application/json'})
+        else:
+            return Response({'error': 'Conversación no encontrada'}, status_code=404, headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        return Response({'error': str(e)}, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/conversations/<int:conversation_id>/delete', methods=['DELETE'])
+def api_delete_conversation(request, conversation_id):
+    """Eliminar una conversación"""
+    try:
+        delete_conversation(conversation_id)
+        return Response({'success': True}, headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        return Response({'error': str(e)}, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/messages/save', methods=['POST'])
+def api_save_message(request):
+    """Guardar un mensaje"""
+    try:
+        data = request.json
+        conversation_id = data.get('conversation_id')
+        role = data.get('role')
+        content = data.get('content')
+        
+        save_message(conversation_id, role, content)
+        return Response({'success': True}, headers={'Content-Type': 'application/json'})
+    except Exception as e:
+        return Response({'error': str(e)}, status_code=500, headers={'Content-Type': 'application/json'})
 
 @app.route('/api/chat', methods=['POST'])
 def api_chat(request):
@@ -86,30 +342,23 @@ def api_chat(request):
     
     try:
         data = request.json
-        model = data.get('model', 'phi')
+        model = data.get('model', 'mistral:latest')
         message = data.get('message', '')
-        history = data.get('history', [])
+        conversation_id = data.get('conversation_id')
         
-        # Construir contexto del chat
-        messages = []
-        for msg in history:
-            messages.append({
-                'role': msg.get('role', 'user'),
-                'content': msg.get('content', '')
-            })
-        messages.append({
-            'role': 'user',
-            'content': message
-        })
+        # Guardar mensaje del usuario
+        if conversation_id:
+            save_message(conversation_id, 'user', message)
         
-        # Usar librería ollama de Python
-        response = ollama_client.chat(
-            model=model,
-            messages=messages
-        )
+        # Generar respuesta
+        response = ollama_service.simple_generate(message, model)
+        
+        # Guardar respuesta del bot
+        if conversation_id:
+            save_message(conversation_id, 'bot', response)
         
         return Response({
-            'response': response.get('message', {}).get('content', ''),
+            'response': response,
             'model': model
         }, headers={'Content-Type': 'application/json'})
     except Exception as e:
@@ -117,136 +366,5 @@ def api_chat(request):
             'error': str(e)
         }, status_code=500, headers={'Content-Type': 'application/json'})
 
-@app.route('/api/install', methods=['POST'])
-def api_install(request):
-    """Instalar Ollama (local o en dispositivo)"""
-    try:
-        data = request.json
-        device_id = data.get('device_id')
-        
-        if device_id:
-            # Instalar en dispositivo vía ADB
-            # Paso 1: Detectar arquitectura del dispositivo
-            arch_cmd = ['adb', '-s', device_id, 'shell', 'uname -m']
-            arch_result = subprocess.run(arch_cmd, capture_output=True, text=True, timeout=10)
-            arch = arch_result.stdout.strip()
-            
-            # Paso 2: Descargar binario de Ollama según arquitectura
-            if arch == 'aarch64':
-                ollama_url = 'https://ollama.com/download/ollama-linux-arm64'
-            elif arch == 'x86_64':
-                ollama_url = 'https://ollama.com/download/ollama-linux-amd64'
-            else:
-                return Response({
-                    'error': f'Arquitectura no soportada: {arch}. Ollama requiere aarch64 o x86_64'
-                }, status_code=400, headers={'Content-Type': 'application/json'})
-            
-            # Paso 3: Descargar binario en el dispositivo
-            download_cmd = [
-                'adb', '-s', device_id, 'shell',
-                f'curl -L {ollama_url} -o /tmp/ollama'
-            ]
-            download_result = subprocess.run(download_cmd, capture_output=True, text=True, timeout=300)
-            
-            if download_result.returncode != 0:
-                return Response({
-                    'success': False,
-                    'error': 'Error descargando Ollama',
-                    'output': download_result.stdout,
-                    'stderr': download_result.stderr
-                }, headers={'Content-Type': 'application/json'})
-            
-            # Paso 4: Dar permisos de ejecución
-            chmod_cmd = ['adb', '-s', device_id, 'shell', 'chmod +x /tmp/ollama']
-            chmod_result = subprocess.run(chmod_cmd, capture_output=True, text=True, timeout=10)
-            
-            # Paso 5: Mover a /usr/local/bin
-            move_cmd = ['adb', '-s', device_id, 'shell', 'sudo mv /tmp/ollama /usr/local/bin/ollama']
-            move_result = subprocess.run(move_cmd, capture_output=True, text=True, timeout=10)
-            
-            return Response({
-                'success': True,
-                'architecture': arch,
-                'output': f'Ollama instalado para {arch}',
-                'download_output': download_result.stdout,
-                'chmod_output': chmod_result.stdout,
-                'move_output': move_result.stdout
-            }, headers={'Content-Type': 'application/json'})
-        else:
-            # Instalar localmente (Linux/Mac)
-            install_cmd = ['curl', '-fsSL', 'https://ollama.com/install.sh', '|', 'sh']
-            result = subprocess.run('curl -fsSL https://ollama.com/install.sh | sh', shell=True, capture_output=True, text=True, timeout=300)
-            
-            return Response({
-                'success': result.returncode == 0,
-                'output': result.stdout,
-                'error': result.stderr
-            }, headers={'Content-Type': 'application/json'})
-    except Exception as e:
-        return Response({
-            'error': str(e)
-        }, status_code=500, headers={'Content-Type': 'application/json'})
-
-@app.route('/api/pull', methods=['POST'])
-def api_pull(request):
-    """Descargar un modelo"""
-    if not OLLAMA_AVAILABLE:
-        return Response({
-            'error': 'Librería ollama no instalada'
-        }, status_code=500, headers={'Content-Type': 'application/json'})
-    
-    try:
-        data = request.json
-        model = data.get('model')
-        
-        if not model:
-            return Response({
-                'error': 'model requerido'
-            }, status_code=400, headers={'Content-Type': 'application/json'})
-        
-        # Usar librería ollama para descargar modelo
-        ollama_client.pull(model)
-        
-        return Response({
-            'success': True,
-            'model': model
-        }, headers={'Content-Type': 'application/json'})
-    except Exception as e:
-        return Response({
-            'error': str(e)
-        }, status_code=500, headers={'Content-Type': 'application/json'})
-
-@app.route('/api/start', methods=['POST'])
-def api_start(request):
-    """Iniciar Ollama (local o en dispositivo)"""
-    try:
-        data = request.json
-        device_id = data.get('device_id')
-        
-        if device_id:
-            # Iniciar Ollama en el dispositivo (método nativo de Linux)
-            start_cmd = [
-                'adb', '-s', device_id, 'shell',
-                'nohup ollama serve > /tmp/ollama.log 2>&1 &'
-            ]
-            result = subprocess.run(start_cmd, capture_output=True, text=True, timeout=10)
-            
-            return Response({
-                'success': result.returncode == 0,
-                'output': result.stdout,
-                'error': result.stderr
-            }, headers={'Content-Type': 'application/json'})
-        else:
-            # Iniciar Ollama localmente
-            start_cmd = ['nohup', 'ollama', 'serve', '>', '/tmp/ollama.log', '2>&1', '&']
-            result = subprocess.run('nohup ollama serve > /tmp/ollama.log 2>&1 &', shell=True, capture_output=True, text=True, timeout=10)
-            
-            return Response({
-                'success': result.returncode == 0,
-                'output': result.stdout,
-                'error': result.stderr
-            }, headers={'Content-Type': 'application/json'})
-    except Exception as e:
-        return Response({
-            'error': str(e)
-        }, status_code=500, headers={'Content-Type': 'application/json'})
+# Inicializar base de datos al iniciar
+init_db()
