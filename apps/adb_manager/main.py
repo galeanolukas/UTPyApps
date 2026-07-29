@@ -736,29 +736,40 @@ end script
             return False, f"Error abriendo morph-browser: {str(e)}"
     
     @staticmethod
-    def enable_wifi_display(device_id):
+    def enable_wifi_display(device_id, sudo_password=None):
         """Habilitar pantalla WiFi (Miracast) en Ubuntu Touch"""
         try:
+            # Preparar comando base con o sin password
+            def build_sudo_cmd(cmd):
+                if sudo_password:
+                    return f'echo {sudo_password} | sudo -S {cmd}'
+                return f'sudo {cmd}'
+            
             # Paso 1: Remontar sistema como RW
             print("[WIFI_DISPLAY] Remontando sistema como RW...")
-            mount_result = subprocess.run(['adb', '-s', device_id, 'shell', 'sudo', 'mount', '-o', 'remount,rw', '/'],
+            mount_cmd = build_sudo_cmd('mount -o remount,rw /')
+            mount_result = subprocess.run(['adb', '-s', device_id, 'shell', mount_cmd],
                                         capture_output=True, text=True, timeout=15)
             
             # Paso 2: Configurar propiedades del sistema
             print("[WIFI_DISPLAY] Configurando propiedades del sistema...")
-            setprop1_result = subprocess.run(['adb', '-s', device_id, 'shell', 'sudo', 'setprop', 'ubuntu.widi.supported', '1'],
+            setprop1_cmd = build_sudo_cmd('setprop ubuntu.widi.supported 1')
+            setprop1_result = subprocess.run(['adb', '-s', device_id, 'shell', setprop1_cmd],
                                             capture_output=True, text=True, timeout=10)
-            setprop2_result = subprocess.run(['adb', '-s', device_id, 'shell', 'sudo', 'setprop', 'wifi.interface', 'wlan0'],
+            setprop2_cmd = build_sudo_cmd('setprop wifi.interface wlan0')
+            setprop2_result = subprocess.run(['adb', '-s', device_id, 'shell', setprop2_cmd],
                                             capture_output=True, text=True, timeout=10)
             
             # Paso 3: Iniciar servicio aethercast con systemctl
             print("[WIFI_DISPLAY] Iniciando servicio aethercast...")
-            start_result = subprocess.run(['adb', '-s', device_id, 'shell', 'sudo', 'systemctl', 'start', 'aethercast'],
+            start_cmd = build_sudo_cmd('systemctl start aethercast')
+            start_result = subprocess.run(['adb', '-s', device_id, 'shell', start_cmd],
                                         capture_output=True, text=True, timeout=15)
             
             # Paso 4: Verificar estado del servicio
             print("[WIFI_DISPLAY] Verificando estado del servicio...")
-            status_result = subprocess.run(['adb', '-s', device_id, 'shell', 'sudo', 'systemctl', 'status', 'aethercast'],
+            status_cmd = build_sudo_cmd('systemctl status aethercast')
+            status_result = subprocess.run(['adb', '-s', device_id, 'shell', status_cmd],
                                          capture_output=True, text=True, timeout=10)
             
             is_running = 'active (running)' in status_result.stdout
@@ -2256,7 +2267,10 @@ def api_open_terminal(request, device_id):
 @app.route('/api/device/<device_id>/enable-wifi-display', methods=['POST'])
 def api_enable_wifi_display(request, device_id):
     """API endpoint para habilitar pantalla WiFi (Miracast)"""
-    success, result = ADBManager.enable_wifi_display(device_id)
+    data = request.json
+    sudo_password = data.get('sudo_password')
+    
+    success, result = ADBManager.enable_wifi_display(device_id, sudo_password)
     if success:
         return Response(result, headers={'Content-Type': 'application/json'})
     else:
