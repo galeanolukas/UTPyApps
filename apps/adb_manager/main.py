@@ -736,6 +736,47 @@ end script
             return False, f"Error abriendo morph-browser: {str(e)}"
     
     @staticmethod
+    def enable_wifi_display(device_id):
+        """Habilitar pantalla WiFi (Miracast) en Ubuntu Touch"""
+        try:
+            # Paso 1: Remontar sistema como RW
+            print("[WIFI_DISPLAY] Remontando sistema como RW...")
+            mount_result = subprocess.run(['adb', '-s', device_id, 'shell', 'sudo', 'mount', '-o', 'remount,rw', '/'],
+                                        capture_output=True, text=True, timeout=15)
+            
+            # Paso 2: Configurar propiedades del sistema
+            print("[WIFI_DISPLAY] Configurando propiedades del sistema...")
+            setprop1_result = subprocess.run(['adb', '-s', device_id, 'shell', 'sudo', 'setprop', 'ubuntu.widi.supported', '1'],
+                                            capture_output=True, text=True, timeout=10)
+            setprop2_result = subprocess.run(['adb', '-s', device_id, 'shell', 'sudo', 'setprop', 'wifi.interface', 'wlan0'],
+                                            capture_output=True, text=True, timeout=10)
+            
+            # Paso 3: Iniciar servicio aethercast con systemctl
+            print("[WIFI_DISPLAY] Iniciando servicio aethercast...")
+            start_result = subprocess.run(['adb', '-s', device_id, 'shell', 'sudo', 'systemctl', 'start', 'aethercast'],
+                                        capture_output=True, text=True, timeout=15)
+            
+            # Paso 4: Verificar estado del servicio
+            print("[WIFI_DISPLAY] Verificando estado del servicio...")
+            status_result = subprocess.run(['adb', '-s', device_id, 'shell', 'sudo', 'systemctl', 'status', 'aethercast'],
+                                         capture_output=True, text=True, timeout=10)
+            
+            is_running = 'active (running)' in status_result.stdout
+            
+            return True, {
+                'message': 'Pantalla WiFi configurada' if is_running else 'Pantalla WiFi configurada pero servicio no iniciado',
+                'mount_success': mount_result.returncode == 0,
+                'setprop1_success': setprop1_result.returncode == 0,
+                'setprop2_success': setprop2_result.returncode == 0,
+                'service_started': start_result.returncode == 0,
+                'service_running': is_running,
+                'status_output': status_result.stdout,
+                'status_error': status_result.stderr
+            }
+        except Exception as e:
+            return False, f"Error habilitando pantalla WiFi: {str(e)}"
+    
+    @staticmethod
     def open_lomiri_terminal(device_id, command=None):
         """Abrir lomiri-terminal-app en el dispositivo con comando opcional"""
         try:
@@ -2207,6 +2248,15 @@ def api_open_terminal(request, device_id):
     command = data.get('command')
     
     success, result = ADBManager.open_lomiri_terminal(device_id, command)
+    if success:
+        return Response(result, headers={'Content-Type': 'application/json'})
+    else:
+        return Response({'error': result}, status_code=500, headers={'Content-Type': 'application/json'})
+
+@app.route('/api/device/<device_id>/enable-wifi-display', methods=['POST'])
+def api_enable_wifi_display(request, device_id):
+    """API endpoint para habilitar pantalla WiFi (Miracast)"""
+    success, result = ADBManager.enable_wifi_display(device_id)
     if success:
         return Response(result, headers={'Content-Type': 'application/json'})
     else:
