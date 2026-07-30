@@ -745,13 +745,7 @@ end script
                     return f'echo {sudo_password} | sudo -S {cmd}'
                 return f'sudo {cmd}'
             
-            # Paso 1: Remontar sistema como RW
-            print("[WIFI_DISPLAY] Remontando sistema como RW...")
-            mount_cmd = build_sudo_cmd('mount -o remount,rw /')
-            mount_result = subprocess.run(['adb', '-s', device_id, 'shell', mount_cmd],
-                                        capture_output=True, text=True, timeout=15)
-            
-            # Paso 2: Configurar propiedades del sistema
+            # Paso 1: Configurar propiedades del sistema
             print("[WIFI_DISPLAY] Configurando propiedades del sistema...")
             setprop1_cmd = build_sudo_cmd('setprop ubuntu.widi.supported 1')
             setprop1_result = subprocess.run(['adb', '-s', device_id, 'shell', setprop1_cmd],
@@ -760,13 +754,13 @@ end script
             setprop2_result = subprocess.run(['adb', '-s', device_id, 'shell', setprop2_cmd],
                                             capture_output=True, text=True, timeout=10)
             
-            # Paso 3: Iniciar servicio aethercast con systemctl
+            # Paso 2: Iniciar servicio aethercast con systemctl
             print("[WIFI_DISPLAY] Iniciando servicio aethercast...")
             start_cmd = build_sudo_cmd('systemctl start aethercast')
             start_result = subprocess.run(['adb', '-s', device_id, 'shell', start_cmd],
                                         capture_output=True, text=True, timeout=15)
             
-            # Paso 4: Verificar estado del servicio
+            # Paso 3: Verificar estado del servicio
             print("[WIFI_DISPLAY] Verificando estado del servicio...")
             status_cmd = build_sudo_cmd('systemctl status aethercast')
             status_result = subprocess.run(['adb', '-s', device_id, 'shell', status_cmd],
@@ -776,7 +770,6 @@ end script
             
             return True, {
                 'message': 'Pantalla WiFi configurada' if is_running else 'Pantalla WiFi configurada pero servicio no iniciado',
-                'mount_success': mount_result.returncode == 0,
                 'setprop1_success': setprop1_result.returncode == 0,
                 'setprop2_success': setprop2_result.returncode == 0,
                 'service_started': start_result.returncode == 0,
